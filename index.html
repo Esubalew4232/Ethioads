@@ -537,7 +537,8 @@ let spinning = false;
 let scratchRevealed = false;
 let scratchWin = 0;
 let checkinProcessing = false;
-let clickedTasks = {}; // Keeps track of tasks where the user clicked "Go"
+let clickedTasks = {};
+let pendingAutoAdRound2 = false; // Flags when we are waiting for user to return from ad 1
 
 /* ---------------- init ---------------- */
 async function initApp(){
@@ -558,9 +559,7 @@ async function initApp(){
     renderAll();
     listenLeaderboard();
     
-    // Check for notifications when app opens
     await checkNotifications();
-    // Check for approved withdrawals
     await checkApprovedWithdrawals();
 
     document.getElementById('loading').style.display='none';
@@ -1239,7 +1238,7 @@ async function redeemPromo(){
   }catch(e){ toast('Could not redeem code', 'error'); }
 }
 
-/* ---------------- watch ad (with Monetag Zone 11480597) ---------------- */
+/* ---------------- watch ad (with Auto-Second Ad & Reward ONLY AFTER 2 ADS) ---------------- */
 const ADS_PER_WATCH = 2; // show two ads per Watch Ad press
 
 async function watchAd(){
@@ -1250,7 +1249,26 @@ async function watchAd(){
   const btn = document.getElementById('watchAdBtn');
   btn.disabled = true;
 
-  // --- MONETAG AD TRIGGER ON CLICK ---
+  // --- 1. TRIGGER FIRST AD ON CLICK ---
+  triggerMonetagAd();
+
+  for(let round=1; round<=ADS_PER_WATCH; round++){
+    if (round === 2) {
+      pendingAutoAdRound2 = true;
+      triggerMonetagAd();
+    }
+    // Await completion of each ad round
+    await playOneAdRound(round, ADS_PER_WATCH);
+  }
+
+  pendingAutoAdRound2 = false;
+  
+  // 2. REWARD IS GRANTED ONLY ONCE, AT THE END OF WATCHING BOTH (2) ADS:
+  rewardAd();
+}
+
+// Trigger Monetag Ad safely
+function triggerMonetagAd() {
   try {
     if (typeof show_11480597 === 'function') {
       show_11480597();
@@ -1258,21 +1276,25 @@ async function watchAd(){
       const fallbackUrl = "https://libtl.com/native?zone=11480597";
       if (tg && tg.openLink) {
         tg.openLink(fallbackUrl);
-      } else {
+      } else if (window.open) {
         window.open(fallbackUrl, "_blank");
       }
     }
   } catch (e) {
     console.log('Monetag ad trigger error:', e);
   }
-  // ------------------------------------
-
-  for(let round=1; round<=ADS_PER_WATCH; round++){
-    await playOneAdRound(round, ADS_PER_WATCH);
-  }
-
-  rewardAd();
 }
+
+// AUTOMATIC HIDDEN TRIGGER:
+// Detects when the user returns to the app from watching ad 1 and auto-opens ad 2
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && pendingAutoAdRound2) {
+    pendingAutoAdRound2 = false;
+    setTimeout(() => {
+      triggerMonetagAd();
+    }, 400);
+  }
+});
 
 function playOneAdRound(round, total){
   return new Promise(resolve => {
@@ -1288,10 +1310,6 @@ function playOneAdRound(round, total){
     ring.style.strokeDashoffset = circumference;
     label.textContent = total > 1 ? ('Watching ad ' + round + ' of ' + total + '… stay on this screen') : 'Watching ad… stay on this screen';
     overlay.classList.add('show');
-
-    if (round > 1 && typeof show_11480597 === 'function') {
-      try { show_11480597(); } catch(e) { console.log('Ad load skipped'); }
-    }
 
     if(adTimerInterval) clearInterval(adTimerInterval);
     adTimerInterval = setInterval(() => {
@@ -1309,6 +1327,7 @@ function playOneAdRound(round, total){
   });
 }
 
+// Gives exactly 70 points after finishing the full loop
 async function rewardAd(){
   const reward = settings.adReward || 70;
   const ref = usersCol.doc(uid);
@@ -1320,7 +1339,7 @@ async function rewardAd(){
   };
   if(newScratchAvail) updates.scratchAvailable = FieldValue.increment(1);
   await ref.update(updates);
-  await txCol.add({userId:uid, amount:reward, description:'Watched ad', type:'ad', createdAt:FieldValue.serverTimestamp()});
+  await txCol.add({userId:uid, amount:reward, description:'Watched 2 ads', type:'ad', createdAt:FieldValue.serverTimestamp()});
 
   await refreshUser();
   if((currentUser.missionProgress||0)>=50 && !currentUser.missionRewarded){
@@ -1331,7 +1350,7 @@ async function rewardAd(){
   }
 
   renderAll();
-  toast('+'+reward+' points earned!', 'success');
+  toast('+'+reward+' points earned for watching 2 ads!', 'success');
   adCooldown = true;
   const btn = document.getElementById('watchAdBtn');
   let cd = 5;
