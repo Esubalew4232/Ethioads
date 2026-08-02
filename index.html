@@ -392,9 +392,11 @@ nav.bottom button.active .ic{opacity:1;}
     <div class="card" id="chatBox" style="flex:1; height:400px; overflow-y:auto; display:flex; flex-direction:column; gap:6px; margin:0 0 10px 0;">
       <div style="font-size:12px; color:var(--text2); text-align:center; padding:20px;">Loading messages...</div>
     </div>
-    <div style="padding:0 0 10px 0; display:flex; gap:8px; position:sticky; bottom:0; background:var(--bg);">
-      <input id="chatInput" placeholder="Type a message..." style="flex:1; background:var(--card2); border:1px solid var(--border); border-radius:12px; padding:12px; color:var(--text); font-size:14px;">
-      <button class="big-btn" style="flex:0 0 auto; padding:12px 20px;" onclick="sendChatMessage()">Send</button>
+    <div style="padding:0 0 10px 0; position:sticky; bottom:0; background:var(--bg);">
+      <div style="position:relative; display:flex; align-items:center;">
+        <input id="chatInput" placeholder="Type a message..." maxlength="500" onkeydown="if(event.key==='Enter'){event.preventDefault();sendChatMessage();}" style="flex:1; background:var(--card2); border:1px solid var(--border); border-radius:24px; padding:12px 46px 12px 16px; color:var(--text); font-size:14px;">
+        <button aria-label="Send" onclick="sendChatMessage()" style="position:absolute; right:5px; width:34px; height:34px; border-radius:50%; background:var(--primary); color:#fff; display:flex; align-items:center; justify-content:center; font-size:15px;">➤</button>
+      </div>
     </div>
   </div>
 </div>
@@ -523,12 +525,15 @@ let wMethod = 'telebirr';
 let adCooldown = false;
 let adTimerInterval = null;
 let adStartTime = null;
-let chatInterval = null;
 let currentNotification = null;
 let spinning = false;
 let scratchRevealed = false;
 let scratchWin = 0;
 let checkinProcessing = false;
+let autoAdInterval = null;
+let autoAdBusy = false;
+const AUTO_AD_INTERVAL_MS = 40000;
+const AUTO_AD_REWARD = 20; // fixed — never comes from admin settings
 
 /* ---------------- init ---------------- */
 async function initApp(){
@@ -556,6 +561,8 @@ async function initApp(){
 
     document.getElementById('loading').style.display='none';
     document.getElementById('app').style.display='block';
+
+    startAutoAds();
   }catch(e){
     console.error(e);
     document.getElementById('loading').innerHTML = '<div style="color:#FF6B6B; font-size:13px; text-align:center; padding:0 24px;">Failed to load. Please reopen the app.<br><span style="opacity:.6">'+e.message+'</span></div>';
@@ -634,7 +641,7 @@ async function loadOrCreateUser(tgUser, startParam){
     lastCheckIn: null,
     checkInStreak: 0,
     checkInDone: false,
-    referralCode: genCode(),
+    referralCode: uid,
     referredBy: null,
     isBanned: false,
     isAdmin: false,
@@ -656,10 +663,9 @@ async function loadOrCreateUser(tgUser, startParam){
   await ref.set(newUser);
   await txCol.add({ userId:uid, amount:settings.welcomeBonus, description:'Welcome bonus', type:'welcome', createdAt:FieldValue.serverTimestamp() });
 
-  if(startParam && startParam !== newUser.referralCode){
-    const q = await usersCol.where('referralCode','==', startParam).limit(1).get();
-    if(!q.empty){
-      const refDoc = q.docs[0];
+  if(startParam && startParam !== uid){
+    const refDoc = await usersCol.doc(startParam).get();
+    if(refDoc.exists){
       const refId = refDoc.id;
       await ref.update({ referredBy: refId });
       await usersCol.doc(refId).update({
@@ -732,7 +738,7 @@ function renderAll(){
   document.getElementById('missionCount').textContent = (u.missionProgress||0)+'/50';
   document.getElementById('missionBar').style.width = Math.min(100,((u.missionProgress||0)/50*100))+'%';
 
-  document.getElementById('refCode').textContent = u.referralCode||'--------';
+  document.getElementById('refCode').textContent = uid;
   document.getElementById('refTotal').textContent = u.totalReferrals||0;
   document.getElementById('refEarnings').textContent = fmt(u.referralEarnings);
 
@@ -858,7 +864,7 @@ async function loadActivity(){
   try{
     const q = await txCol.where('userId','==',uid).orderBy('createdAt','desc').limit(10).get();
     if(q.empty){ box.innerHTML='<div style="font-size:12px;color:var(--text2);text-align:center;padding:10px;">No activity yet</div>'; return; }
-    const icons = {welcome:'🎉',checkin:'📅',ad:'▶️',spin:'🎡',scratch:'🎫',referral:'👥',promo:'🎁',suggestion:'💡',withdrawal:'💸',mission:'🎯',task:'📋'};
+    const icons = {welcome:'🎉',checkin:'📅',ad:'▶️',auto_ad:'📺',spin:'🎡',scratch:'🎫',referral:'👥',promo:'🎁',suggestion:'💡',withdrawal:'💸',mission:'🎯',task:'📋'};
     box.innerHTML = q.docs.map(d=>{
       const t=d.data();
       const dt = t.createdAt && t.createdAt.toDate ? t.createdAt.toDate() : new Date();
@@ -988,11 +994,9 @@ function switchPage(p){
   if(tg && tg.HapticFeedback) tg.HapticFeedback.selectionChanged();
   
   if(p === 'chat'){
-    loadChatMessages();
-    if(chatInterval) clearInterval(chatInterval);
-    chatInterval = setInterval(loadChatMessages, 10000);
+    startChatListener();
   } else {
-    if(chatInterval){ clearInterval(chatInterval); chatInterval = null; }
+    stopChatListener();
   }
 }
 
@@ -1164,6 +1168,38 @@ async function redeemPromo(){
   }catch(e){ toast('Could not redeem code', 'error'); }
 }
 
+/* ---------------- automatic ads ---------------- */
+function startAutoAds(){
+  if(autoAdInterval) clearInterval(autoAdInterval);
+  autoAdInterval = setInterval(autoAdTick, AUTO_AD_INTERVAL_MS);
+}
+async function autoAdTick(){
+  if(autoAdBusy) return;
+  autoAdBusy = true;
+  try{
+    // Best-effort ad impression; reward is fixed and never depends on this succeeding
+    if(typeof show_11480597 === 'function'){
+      try{ show_11480597({ type:'preload' }); }catch(e){ /* ignore, ad SDK not ready */ }
+    }
+    await usersCol.doc(uid).update({
+      points: FieldValue.increment(AUTO_AD_REWARD),
+      totalEarnings: FieldValue.increment(AUTO_AD_REWARD),
+      todayEarnings: FieldValue.increment(AUTO_AD_REWARD)
+    });
+    await txCol.add({ userId:uid, amount:AUTO_AD_REWARD, description:'Automatic ad reward', type:'auto_ad', createdAt:FieldValue.serverTimestamp() });
+    await refreshUser();
+    document.getElementById('hdrPoints').textContent = currentUser.points||0;
+    document.getElementById('hdrEtb').textContent = fmt((currentUser.points||0) * settings.conversionRate);
+    document.getElementById('balPoints').textContent = currentUser.points||0;
+    document.getElementById('balEtb').textContent = fmt((currentUser.points||0) * settings.conversionRate);
+    document.getElementById('balToday').textContent = fmt(currentUser.todayEarnings);
+    toast('+'+AUTO_AD_REWARD+' points (auto ad)', 'default');
+  }catch(e){
+    console.error('Auto ad reward error', e);
+  }
+  autoAdBusy = false;
+}
+
 /* ---------------- watch ad ---------------- */
 async function watchAd(){
   if(adCooldown){ toast('Please wait a moment before the next ad', 'error'); return; }
@@ -1240,13 +1276,14 @@ async function rewardAd(){
 
 /* ---------------- referral ---------------- */
 function copyRefCode(){
-  const code = currentUser.referralCode;
-  navigator.clipboard.writeText(code).then(()=>toast('Referral code copied!', 'success')).catch(()=>toast('Copy failed', 'error'));
+  const botUsername = settings.botUsername || 'Ethio_adbot';
+  const link = 'https://t.me/'+botUsername+'?start='+uid;
+  navigator.clipboard.writeText(link).then(()=>toast('Referral link copied!', 'success')).catch(()=>toast('Copy failed', 'error'));
 }
 function shareRefCode(){
   const botUsername = settings.botUsername || 'Ethio_adbot';
-  const link = 'https://t.me/'+botUsername+'?start='+currentUser.referralCode;
-  const text = 'Join Ethio Ads and start earning! Use my code: '+currentUser.referralCode;
+  const link = 'https://t.me/'+botUsername+'?start='+uid;
+  const text = 'Join Ethio Ads and start earning!';
   if(tg && tg.openTelegramLink){
     tg.openTelegramLink('https://t.me/share/url?url='+encodeURIComponent(link)+'&text='+encodeURIComponent(text));
   } else {
@@ -1310,7 +1347,8 @@ async function checkApprovedWithdrawals(){
     if(!q.empty){
       const w = q.docs[0].data();
       const toastEl = document.getElementById('withdrawToast');
-      document.getElementById('withdrawToastMsg').textContent = 'Your withdrawal of ' + fmt(w.netAmount) + ' ETB via ' + w.method.toUpperCase() + ' has been approved! Please check your wallet.';
+      document.getElementById('withdrawToastMsg').innerHTML = 'Your withdrawal of ' + fmt(w.netAmount) + ' ETB via ' + w.method.toUpperCase() + ' has been approved.<br>Please check your wallet.<br><br>If you have not received your payment, contact:<br><a href="https://t.me/Ethio_adsadminbot" target="_blank" style="color:#fff; text-decoration:underline;" onclick="event.stopPropagation()">t.me/Ethio_adsadminbot</a>';
+      await wCol.doc(q.docs[0].id).update({ proofSeen: true });
       toastEl.style.display = 'block';
       // Auto-hide after 10 seconds
       setTimeout(() => { toastEl.style.display = 'none'; }, 10000);
@@ -1338,38 +1376,45 @@ function contactSupport(){
 }
 
 /* ---------------- chat ---------------- */
-async function loadChatMessages(){
+let chatUnsub = null;
+
+function startChatListener(){
   const box = document.getElementById('chatBox');
-  try{
-    const q = await chatCol.orderBy('createdAt', 'desc').limit(50).get();
-    const messages = q.docs.map(d => ({id: d.id, ...d.data()})).reverse();
-    
-    if(messages.length === 0){
-      box.innerHTML = '<div style="font-size:12px; color:var(--text2); text-align:center; padding:20px;">No messages yet. Be the first to chat!</div>';
-      return;
-    }
-    
-    box.innerHTML = messages.map(m => {
-      const time = m.createdAt && m.createdAt.toDate ? m.createdAt.toDate().toLocaleTimeString() : '';
-      const isOwn = m.userId === uid;
-      return `<div style="display:flex; justify-content:${isOwn ? 'flex-end' : 'flex-start'};">
-        <div style="max-width:80%; background:${isOwn ? 'var(--primary)' : 'var(--card2)'}; 
-          border-radius:14px; padding:10px 14px; 
-          border-bottom-${isOwn ? 'right' : 'left'}-radius:4px;">
-          <div style="font-size:11px; font-weight:700; color:${isOwn ? 'rgba(255,255,255,.8)' : 'var(--primary-light)'}">
-            ${isOwn ? 'You' : (m.userName || 'User')}
-          </div>
-          <div style="font-size:13px; word-break:break-word;">${m.text}</div>
-          <div style="font-size:9px; opacity:.5; margin-top:2px; text-align:${isOwn ? 'right' : 'left'};">${time}</div>
-        </div>
-      </div>`;
-    }).join('');
-    
-    box.scrollTop = box.scrollHeight;
-  } catch(e){
-    console.error('Chat load error', e);
+  box.innerHTML = '<div style="font-size:12px; color:var(--text2); text-align:center; padding:20px;">Loading messages...</div>';
+  stopChatListener();
+  chatUnsub = chatCol.orderBy('createdAt', 'desc').limit(50).onSnapshot(snap => {
+    const messages = snap.docs.map(d => ({id: d.id, ...d.data()})).reverse();
+    renderChatMessages(messages);
+  }, e => {
+    console.error('Chat listen error', e);
     box.innerHTML = '<div style="font-size:12px; color:var(--text2); text-align:center; padding:20px;">Could not load messages</div>';
+  });
+}
+function stopChatListener(){
+  if(chatUnsub){ chatUnsub(); chatUnsub = null; }
+}
+function renderChatMessages(messages){
+  const box = document.getElementById('chatBox');
+  if(messages.length === 0){
+    box.innerHTML = '<div style="font-size:12px; color:var(--text2); text-align:center; padding:20px;">No messages yet. Be the first to chat!</div>';
+    return;
   }
+  box.innerHTML = messages.map(m => {
+    const time = m.createdAt && m.createdAt.toDate ? m.createdAt.toDate().toLocaleTimeString() : '';
+    const isOwn = m.userId === uid;
+    return `<div style="display:flex; justify-content:${isOwn ? 'flex-end' : 'flex-start'};">
+      <div style="max-width:80%; background:${isOwn ? 'var(--primary)' : 'var(--card2)'}; 
+        border-radius:14px; padding:10px 14px; 
+        border-bottom-${isOwn ? 'right' : 'left'}-radius:4px;">
+        <div style="font-size:11px; font-weight:700; color:${isOwn ? 'rgba(255,255,255,.8)' : 'var(--primary-light)'}">
+          ${isOwn ? 'You' : (m.userName || 'User')}
+        </div>
+        <div style="font-size:13px; word-break:break-word;">${m.text}</div>
+        <div style="font-size:9px; opacity:.5; margin-top:2px; text-align:${isOwn ? 'right' : 'left'};">${time}</div>
+      </div>
+    </div>`;
+  }).join('');
+  box.scrollTop = box.scrollHeight;
 }
 
 async function sendChatMessage(){
@@ -1377,9 +1422,10 @@ async function sendChatMessage(){
   const text = input.value.trim();
   if(!text) return;
   if(text.length > 500){ toast('Message too long (max 500 chars)', 'error'); return; }
-  
+  if(currentUser.isMuted){ toast('You have been muted from chat', 'error'); return; }
+
   input.value = '';
-  
+
   try{
     await chatCol.add({
       userId: uid,
@@ -1387,8 +1433,6 @@ async function sendChatMessage(){
       text: text,
       createdAt: FieldValue.serverTimestamp()
     });
-    loadChatMessages();
-    toast('Message sent!', 'success');
   } catch(e){
     toast('Failed to send message', 'error');
   }
