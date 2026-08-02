@@ -274,7 +274,7 @@ nav.bottom button.active .ic{opacity:1;}
 
     <div class="card" style="margin-top:14px; text-align:center;">
       <div style="font-size:14px; font-weight:700; margin-bottom:4px;">Watch an Ad</div>
-      <div style="font-size:12px; color:var(--text2); margin-bottom:14px;">Earn <span id="adRewardLbl">100</span> points per ad watched</div>
+      <div style="font-size:12px; color:var(--text2); margin-bottom:14px;">Earn 70 points per ad watched</div>
       <button class="big-btn" id="watchAdBtn" onclick="watchAd()">▶️ Watch Ad</button>
     </div>
 
@@ -522,7 +522,7 @@ let currentUser = null;
 let uid = null;
 let settings = {
   welcomeBonus:200, dailyBonus:100, referralReward:500,
-  adReward:100, adTimer:30, minWithdrawal:6000, conversionRate:0.005, transactionFee:0.10,
+  adReward:70, adTimer:30, minWithdrawal:6000, conversionRate:0.005, transactionFee:0.10,
   maintenanceMode:false, withdrawEnabled:true, referralEnabled:true, tasksEnabled:true,
   refComp1:100, refComp2:80, refComp3:50, refComp4to10:30,
   supportUsername:'Ethio_adbot', usdtRate:170, announcement:'', announcementActive:false,
@@ -537,6 +537,7 @@ let spinning = false;
 let scratchRevealed = false;
 let scratchWin = 0;
 let checkinProcessing = false;
+let clickedTasks = {}; // Keeps track of tasks where the user clicked "Go"
 
 /* ---------------- init ---------------- */
 async function initApp(){
@@ -577,7 +578,6 @@ async function loadSettings(){
     else { await settingsDoc.set(settings); }
   }catch(e){ console.warn('settings load failed, using defaults', e); }
 
-  document.getElementById('adRewardLbl').textContent = settings.adReward;
   document.getElementById('wMin').textContent = settings.minWithdrawal;
   document.getElementById('prize1').textContent = settings.refComp1+' ETB';
   document.getElementById('prize2').textContent = settings.refComp2+' ETB';
@@ -780,7 +780,6 @@ function renderAchievements(u, level){
 async function loadAvailableTasks(){
   const box = document.getElementById('availableTasksBox');
   try{
-    // Removing the strict .where('active', '==', true) filter so tasks appear without issues
     const snap = await tasksCol.orderBy('createdAt', 'desc').get();
     const tasks = snap.docs.map(d => ({id: d.id, ...d.data()}));
     
@@ -799,16 +798,19 @@ async function loadAvailableTasks(){
     box.innerHTML = tasks.map(t => {
       const isCompleted = completedTasks.includes(t.id);
       const rewardVal = t.reward || 50;
+      const hasClickedGo = clickedTasks[t.id] === true;
+      const completeBtnColor = hasClickedGo ? 'var(--primary)' : 'var(--danger)';
+      
       return `<div style="display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--border); ${isCompleted ? 'opacity:0.5;' : ''}">
         <div style="font-size:24px;">${typeEmojis[t.type] || '🎯'}</div>
         <div style="flex:1;">
           <div style="font-weight:600; font-size:13px;">${t.title || 'Task'}</div>
-          <div style="font-size:11px; color:var(--text2);">${t.type || 'Task'} · ${t.link || ''}</div>
+          <div style="font-size:11px; color:var(--text2);">${t.type || 'Task'} · +${rewardVal} pts</div>
         </div>
-        <div style="display:flex; flex-direction:column; align-items:flex-end;">
-          <div style="color:var(--success); font-weight:700; font-size:13px;">+${rewardVal} pts</div>
+        <div style="display:flex; gap:6px; align-items:center;">
           ${isCompleted ? '<span style="font-size:10px; color:var(--text2);">✅ Completed</span>' : 
-            `<button class="btn" style="padding:4px 12px; font-size:11px; background:var(--primary); color:#fff; border-radius:8px;" onclick="completeTask('${t.id}', ${rewardVal})">Complete</button>`}
+            `<button class="btn" style="padding:6px 12px; font-size:11px; background:var(--secondary); color:#fff; border-radius:8px; font-weight:700;" onclick="goTask('${t.id}', '${t.link || ''}')">Go</button>
+             <button class="btn" id="btn-comp-${t.id}" style="padding:6px 12px; font-size:11px; background:${completeBtnColor}; color:#fff; border-radius:8px; font-weight:700;" onclick="completeTask('${t.id}', ${rewardVal})">Complete</button>`}
         </div>
       </div>`;
     }).join('');
@@ -818,8 +820,30 @@ async function loadAvailableTasks(){
   }
 }
 
+function goTask(taskId, link){
+  clickedTasks[taskId] = true;
+  const compBtn = document.getElementById(`btn-comp-${taskId}`);
+  if(compBtn){
+    compBtn.style.background = 'var(--primary)';
+  }
+  if(link && link.startsWith('http')){
+    if(tg && tg.openLink){
+      tg.openLink(link);
+    } else {
+      window.open(link, '_blank');
+    }
+  } else {
+    toast('Task link opened!', 'success');
+  }
+}
+
 async function completeTask(taskId, rewardAmount){
   try{
+    if(!clickedTasks[taskId]){
+      toast("Please click 'Go' first to visit the link!", 'error');
+      return;
+    }
+    
     const completed = currentUser.completedTasks || [];
     if(completed.includes(taskId)){
       toast('You already completed this task', 'error');
@@ -1108,12 +1132,7 @@ function openSpin(){
 }
 
 function calculateWeightedSpin(){
-  const rand = Math.random() * 100; // Returns float 0 - 100
-  // Probability distribution:
-  // 90%: 1-50
-  // 9%: 50-70
-  // 0.9999%: 70-80
-  // 0.00001%: 200-300
+  const rand = Math.random() * 100;
   if(rand < 90){
     return Math.floor(Math.random() * 50) + 1; // 1 to 50
   } else if(rand < 99){
@@ -1220,7 +1239,7 @@ async function redeemPromo(){
   }catch(e){ toast('Could not redeem code', 'error'); }
 }
 
-/* ---------------- watch ad ---------------- */
+/* ---------------- watch ad (with Monetag Zone 11480597) ---------------- */
 const ADS_PER_WATCH = 2; // show two ads per Watch Ad press
 
 async function watchAd(){
@@ -1230,6 +1249,23 @@ async function watchAd(){
 
   const btn = document.getElementById('watchAdBtn');
   btn.disabled = true;
+
+  // --- MONETAG AD TRIGGER ON CLICK ---
+  try {
+    if (typeof show_11480597 === 'function') {
+      show_11480597();
+    } else {
+      const fallbackUrl = "https://libtl.com/native?zone=11480597";
+      if (tg && tg.openLink) {
+        tg.openLink(fallbackUrl);
+      } else {
+        window.open(fallbackUrl, "_blank");
+      }
+    }
+  } catch (e) {
+    console.log('Monetag ad trigger error:', e);
+  }
+  // ------------------------------------
 
   for(let round=1; round<=ADS_PER_WATCH; round++){
     await playOneAdRound(round, ADS_PER_WATCH);
@@ -1253,6 +1289,10 @@ function playOneAdRound(round, total){
     label.textContent = total > 1 ? ('Watching ad ' + round + ' of ' + total + '… stay on this screen') : 'Watching ad… stay on this screen';
     overlay.classList.add('show');
 
+    if (round > 1 && typeof show_11480597 === 'function') {
+      try { show_11480597(); } catch(e) { console.log('Ad load skipped'); }
+    }
+
     if(adTimerInterval) clearInterval(adTimerInterval);
     adTimerInterval = setInterval(() => {
       const elapsed = (Date.now() - adStartTime) / 1000;
@@ -1266,15 +1306,11 @@ function playOneAdRound(round, total){
         resolve();
       }
     }, 200);
-
-    if(typeof show_11480597 === 'function'){
-      try { show_11480597(); } catch(e) { console.log('Ad load skipped'); }
-    }
   });
 }
 
 async function rewardAd(){
-  const reward = settings.adReward || 100;
+  const reward = settings.adReward || 70;
   const ref = usersCol.doc(uid);
   const newScratchAvail = ((currentUser.todayAdsCount||0)+1) % (settings.scratchPerAds||5) === 0 ? 1 : 0;
   const updates = {
@@ -1398,7 +1434,6 @@ async function submitSuggestion(){
   
   await suggCol.add({ userId:uid, userName:currentUser.firstName, text, votes:0, status:'open', createdAt:FieldValue.serverTimestamp() });
   
-  // Award 10 points ONLY on the FIRST suggestion submitted
   if(!currentUser.suggestionRewarded){
     await usersCol.doc(uid).update({
       points: FieldValue.increment(10),
@@ -1496,7 +1531,6 @@ async function sendChatMessage(){
 /* ---------------- notifications ---------------- */
 async function checkNotifications(){
   try{
-    // Removing the strict where filter so broadcasts appear regardless of index configuration
     const snap = await notifCol.orderBy('createdAt', 'desc').limit(1).get();
     
     if(snap.empty) {
@@ -1507,7 +1541,6 @@ async function checkNotifications(){
     const notif = snap.docs[0].data();
     const notifId = snap.docs[0].id;
     
-    // Ignore notification if it was explicitly deactivated
     if(notif.active === false){
       document.getElementById('notificationPopup').style.display = 'none';
       return;
