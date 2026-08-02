@@ -37,12 +37,12 @@ a{color:inherit; text-decoration:none;}
 
 /* ---------- header ---------- */
 header{padding:18px 16px 14px; display:flex; align-items:center; gap:12px;}
-.avatar{width:46px; height:46px; border-radius:14px; background:linear-gradient(135deg,var(--primary),var(--secondary)); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:18px; flex-shrink:0; overflow:hidden;}
+.avatar{cursor:pointer; width:46px; height:46px; border-radius:14px; background:linear-gradient(135deg,var(--primary),var(--secondary)); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:18px; flex-shrink:0; overflow:hidden;}
 .avatar img{width:100%; height:100%; object-fit:cover;}
-.hgreet{flex:1; min-width:0;}
+.hgreet{flex:1; min-width:0; cursor:pointer;}
 .hgreet .name{font-weight:600; font-size:15px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 .hgreet .sub{font-size:12px; color:var(--text2);}
-.pill{display:flex; gap:8px;}
+.pill{cursor:pointer; display:flex; gap:8px;}
 .pill span{background:var(--card); border:1px solid var(--border); padding:6px 10px; border-radius:20px; font-size:12px; font-weight:700; display:flex; align-items:center; gap:4px;}
 
 /* ---------- announcement ---------- */
@@ -59,7 +59,7 @@ header{padding:18px 16px 14px; display:flex; align-items:center; gap:12px;}
 body.light .glass{background:rgba(255,255,255,.7);}
 
 /* balance hero */
-.balance-card{background:linear-gradient(145deg,var(--primary),var(--primary-dark) 60%,var(--secondary)); border-radius:20px; padding:22px; margin-bottom:14px; position:relative; overflow:hidden; box-shadow:0 8px 30px rgba(108,92,231,.35);}
+.balance-card{background:linear-gradient(145deg,var(--primary),var(--primary-dark) 60%,var(--secondary)); border-radius:20px; padding:22px; margin-bottom:14px; position:relative; overflow:hidden; box-shadow:0 8px 30px rgba(108,92,231,.35); cursor:pointer;}
 .balance-card::before{content:""; position:absolute; width:220px; height:220px; border-radius:50%; background:radial-gradient(circle,rgba(255,255,255,.25),transparent 70%); top:-90px; right:-70px; animation:pulseRing 3.5s ease-in-out infinite;}
 @keyframes pulseRing{0%,100%{transform:scale(1); opacity:.6;} 50%{transform:scale(1.15); opacity:1;}}
 .balance-card .lbl{font-size:12px; opacity:.85; font-weight:600; text-transform:uppercase; letter-spacing:.5px;}
@@ -186,6 +186,11 @@ nav.bottom button.active .ic{opacity:1;}
 #notificationPopup{display:none; position:fixed; top:16px; left:50%; transform:translateX(-50%); width:calc(100% - 32px); max-width:448px; z-index:3000; background:var(--card); border:2px solid var(--primary); border-radius:16px; padding:16px 20px; box-shadow:0 8px 32px rgba(0,0,0,.5); animation:slideDown .3s ease;}
 @keyframes slideDown{from{opacity:0; transform:translateX(-50%) translateY(-20px);} to{opacity:1; transform:translateX(-50%) translateY(0);}}
 #notificationPopup .notif-close{background:none; border:none; color:var(--text2); font-size:20px; padding:0 0 0 12px; cursor:pointer;}
+
+/* Withdraw Success Toast */
+#withdrawToast{display:none; position:fixed; bottom:100px; left:50%; transform:translateX(-50%); width:calc(100% - 32px); max-width:448px; z-index:3000; background:var(--success); color:#fff; border-radius:16px; padding:16px 20px; box-shadow:0 8px 32px rgba(0,0,0,.5); animation:slideUp .3s ease; text-align:center;}
+@keyframes slideUp{from{opacity:0; transform:translateX(-50%) translateY(20px);} to{opacity:1; transform:translateX(-50%) translateY(0);}}
+#withdrawToast .close-toast{position:absolute; top:8px; right:12px; font-size:18px; color:rgba(255,255,255,.7); cursor:pointer;}
 </style>
 </head>
 <body>
@@ -193,14 +198,22 @@ nav.bottom button.active .ic{opacity:1;}
 <div id="loading"><div class="spinner"></div><div style="font-size:13px;color:var(--text2)">Loading Ethio Ads…</div></div>
 <canvas id="confettiCanvas"></canvas>
 
+<!-- Withdraw Success Toast -->
+<div id="withdrawToast">
+  <span class="close-toast" onclick="document.getElementById('withdrawToast').style.display='none'">✕</span>
+  <div style="font-size:28px; margin-bottom:4px;">✅</div>
+  <div style="font-weight:700; font-size:16px;">Withdrawal Approved!</div>
+  <div style="font-size:13px; opacity:.9; margin-top:4px;" id="withdrawToastMsg">Your withdrawal has been processed. Please check your wallet.</div>
+</div>
+
 <div id="app" style="display:none;">
   <header>
-    <div class="avatar" id="avatarBox">?</div>
-    <div class="hgreet">
+    <div class="avatar" id="avatarBox" onclick="switchPage('profile')">?</div>
+    <div class="hgreet" onclick="switchPage('profile')">
       <div class="name" id="userName">User</div>
       <div class="sub" id="userSub">Level 1</div>
     </div>
-    <div class="pill">
+    <div class="pill" onclick="switchPage('withdraw')">
       <span>⭐ <span id="hdrPoints" class="mono">0</span></span>
       <span>💰 <span id="hdrEtb" class="mono">0.00</span></span>
     </div>
@@ -222,7 +235,7 @@ nav.bottom button.active .ic{opacity:1;}
 
   <!-- HOME -->
   <div class="page active" id="page-home">
-    <div class="balance-card">
+    <div class="balance-card" onclick="switchPage('withdraw')">
       <div class="lbl">Total Balance</div>
       <div class="val">⭐ <span id="balPoints" class="mono">0</span><small>pts</small></div>
       <div class="balance-sub">
@@ -314,7 +327,7 @@ nav.bottom button.active .ic{opacity:1;}
       <div class="val">💰 <span id="wEtb" class="mono">0.00</span><small>ETB</small></div>
       <div class="balance-sub"><span>⭐ <b id="wPoints" class="mono">0</b> pts</span></div>
     </div>
-    <div style="font-size:11.5px; color:var(--text2); margin-bottom:14px;">Minimum withdrawal: <span id="wMin">6000</span> pts · 10% fee applies</div>
+    <div style="font-size:11.5px; color:var(--text2); margin-bottom:14px;">Minimum withdrawal: <span id="wMin">6000</span> pts · <span id="wFeePercent">10</span>% fee applies</div>
 
     <div class="tabbar-alt">
       <button class="active" data-m="telebirr" onclick="setWMethod('telebirr')">Telebirr</button>
@@ -337,7 +350,7 @@ nav.bottom button.active .ic{opacity:1;}
     <div class="field"><label>Points to withdraw</label><input id="wAmount" type="number" placeholder="min 6000" oninput="calcWithdraw()"></div>
     <div class="card" style="margin-bottom:14px; font-size:12.5px;">
       <div class="row-between"><span>Gross ETB</span><span class="mono" id="wGross">0.00</span></div>
-      <div class="row-between"><span>Fee (10%)</span><span class="mono" id="wFee">0.00</span></div>
+      <div class="row-between"><span>Fee (<span id="wFeePercent2">10</span>%)</span><span class="mono" id="wFee">0.00</span></div>
       <div class="row-between"><span>You receive</span><span class="mono" id="wNet" style="color:var(--success); font-weight:700;">0.00</span></div>
     </div>
     <button class="big-btn" onclick="submitWithdraw()">Request Withdrawal</button>
@@ -503,8 +516,8 @@ let settings = {
   adReward:100, adTimer:30, minWithdrawal:6000, conversionRate:0.005, transactionFee:0.10,
   maintenanceMode:false, withdrawEnabled:true, referralEnabled:true, tasksEnabled:true,
   refComp1:100, refComp2:80, refComp3:50, refComp4to10:30,
-  supportUsername:'kkkkkkkkkkbot', usdtRate:170, announcement:'', announcementActive:false,
-  scratchPerAds:5
+  supportUsername:'Ethio_adbot', usdtRate:170, announcement:'', announcementActive:false,
+  scratchPerAds:5, botUsername:'Ethio_adbot'
 };
 let wMethod = 'telebirr';
 let adCooldown = false;
@@ -515,6 +528,7 @@ let currentNotification = null;
 let spinning = false;
 let scratchRevealed = false;
 let scratchWin = 0;
+let checkinProcessing = false;
 
 /* ---------------- init ---------------- */
 async function initApp(){
@@ -537,6 +551,8 @@ async function initApp(){
     
     // Check for notifications only when app opens
     await checkNotifications();
+    // Check for approved withdrawals
+    await checkApprovedWithdrawals();
 
     document.getElementById('loading').style.display='none';
     document.getElementById('app').style.display='block';
@@ -559,6 +575,10 @@ async function loadSettings(){
   document.getElementById('prize2').textContent = settings.refComp2+' ETB';
   document.getElementById('prize3').textContent = settings.refComp3+' ETB';
   document.getElementById('prize4').textContent = settings.refComp4to10+' ETB';
+  
+  const feePercent = Math.round((settings.transactionFee || 0.10) * 100);
+  document.getElementById('wFeePercent').textContent = feePercent;
+  document.getElementById('wFeePercent2').textContent = feePercent;
 
   if(settings.announcementActive && settings.announcement){
     if(sessionStorage.getItem('annDismissed') !== settings.announcement){
@@ -878,22 +898,29 @@ async function loadWithdrawHistory(){
   const box = document.getElementById('wHistoryBox');
   try{
     const q = await wCol.where('userId','==',uid).orderBy('createdAt','desc').limit(15).get();
-    if(q.empty){ box.innerHTML='<div style="font-size:12px;color:var(--text2);text-align:center;padding:10px;">No withdrawals yet</div>'; return; }
+    if(q.empty){ 
+      box.innerHTML='<div style="font-size:12px;color:var(--text2);text-align:center;padding:10px;">No withdrawals yet</div>'; 
+      return; 
+    }
     box.innerHTML = q.docs.map(d=>{
       const t=d.data(); 
       const dt = t.createdAt && t.createdAt.toDate ? t.createdAt.toDate() : new Date();
       const statusIcons = {pending:'⏳', approved:'✅', rejected:'❌'};
-      const isApproved = t.status === 'approved' && t.proofImage;
+      const isApproved = t.status === 'approved';
+      const isRejected = t.status === 'rejected';
       return `<div class="activity-row" onclick="showWithdrawalDetail('${d.id}')">
         <div class="activity-ic">${statusIcons[t.status]||'💸'}</div>
         <div class="activity-desc">
           <div>${t.method.toUpperCase()} · ${fmt(t.netAmount)} ETB</div>
-          <div class="t">${dt.toLocaleDateString()} ${isApproved ? '✅ Proof available' : ''}</div>
+          <div class="t">${dt.toLocaleDateString()} ${isApproved ? '✅ Approved' : ''} ${isRejected ? '❌ Rejected' : ''}</div>
         </div>
         <span class="badge ${t.status}">${t.status}</span>
       </div>`;
     }).join('');
-  }catch(e){ box.innerHTML=''; }
+  }catch(e){ 
+    console.error('Load withdraw history error', e);
+    box.innerHTML='<div style="font-size:12px;color:var(--text2);text-align:center;padding:10px;">Could not load history</div>';
+  }
 }
 
 async function showWithdrawalDetail(id){
@@ -915,10 +942,15 @@ async function showWithdrawalDetail(id){
   const proofContainer = document.getElementById('wdProofContainer');
   const rejectContainer = document.getElementById('wdRejectContainer');
   
-  if(t.status === 'approved' && t.proofImage){
+  if(t.status === 'approved'){
     proofContainer.style.display = 'block';
-    document.getElementById('wdProofImage').src = t.proofImage;
-    document.getElementById('wdProofRef').textContent = t.proofRef ? 'Reference: ' + t.proofRef : '';
+    if(t.proofImage){
+      document.getElementById('wdProofImage').src = t.proofImage;
+      document.getElementById('wdProofRef').textContent = t.proofRef ? 'Reference: ' + t.proofRef : '';
+    } else {
+      document.getElementById('wdProofImage').style.display = 'none';
+      document.getElementById('wdProofRef').textContent = 'Payment has been sent to your account.';
+    }
     if(!t.proofSeen){
       await wCol.doc(id).update({ proofSeen: true });
     }
@@ -1023,22 +1055,45 @@ function openCheckin(){
   openModal('modalCheckin');
 }
 async function doCheckin(){
+  if(checkinProcessing) return;
   if(currentUser.checkInDone) return;
-  const u = currentUser;
-  let streak = u.checkInStreak||0;
-  const last = u.lastCheckIn && u.lastCheckIn.toDate ? u.lastCheckIn.toDate() : null;
-  if(last && (Date.now()-last.getTime()) < 48*3600*1000) streak+=1; else streak=1;
-  const bonus = settings.dailyBonus + Math.min(streak*10, 100);
+  
+  checkinProcessing = true;
+  const btn = document.getElementById('checkinBtn');
+  btn.disabled = true;
+  
+  try{
+    // Double check if already claimed
+    const freshUser = await usersCol.doc(uid).get();
+    if(freshUser.data().checkInDone){
+      toast('Already claimed today!', 'error');
+      checkinProcessing = false;
+      btn.disabled = false;
+      return;
+    }
+    
+    const u = currentUser;
+    let streak = u.checkInStreak||0;
+    const last = u.lastCheckIn && u.lastCheckIn.toDate ? u.lastCheckIn.toDate() : null;
+    if(last && (Date.now()-last.getTime()) < 48*3600*1000) streak+=1; else streak=1;
+    const bonus = settings.dailyBonus + Math.min(streak*10, 100);
 
-  await usersCol.doc(uid).update({
-    points: FieldValue.increment(bonus), totalEarnings: FieldValue.increment(bonus),
-    todayEarnings: FieldValue.increment(bonus), checkInStreak:streak, checkInDone:true,
-    lastCheckIn: FieldValue.serverTimestamp()
-  });
-  await txCol.add({userId:uid, amount:bonus, description:'Daily check-in (streak '+streak+')', type:'checkin', createdAt:FieldValue.serverTimestamp()});
-  await refreshUser(); renderAll();
-  closeModal('modalCheckin'); confettiBurst();
-  toast('+'+bonus+' points! Streak: '+streak+' days', 'success');
+    await usersCol.doc(uid).update({
+      points: FieldValue.increment(bonus), totalEarnings: FieldValue.increment(bonus),
+      todayEarnings: FieldValue.increment(bonus), checkInStreak:streak, checkInDone:true,
+      lastCheckIn: FieldValue.serverTimestamp()
+    });
+    await txCol.add({userId:uid, amount:bonus, description:'Daily check-in (streak '+streak+')', type:'checkin', createdAt:FieldValue.serverTimestamp()});
+    await refreshUser(); renderAll();
+    closeModal('modalCheckin'); confettiBurst();
+    toast('+'+bonus+' points! Streak: '+streak+' days', 'success');
+  }catch(e){
+    console.error('Checkin error:', e);
+    toast('Failed to claim check-in', 'error');
+  }
+  
+  checkinProcessing = false;
+  btn.disabled = false;
 }
 
 /* ---------------- spin ---------------- */
@@ -1189,7 +1244,7 @@ function copyRefCode(){
   navigator.clipboard.writeText(code).then(()=>toast('Referral code copied!', 'success')).catch(()=>toast('Copy failed', 'error'));
 }
 function shareRefCode(){
-  const botUsername = settings.botUsername || 'YourBotUsername';
+  const botUsername = settings.botUsername || 'Ethio_adbot';
   const link = 'https://t.me/'+botUsername+'?start='+currentUser.referralCode;
   const text = 'Join Ethio Ads and start earning! Use my code: '+currentUser.referralCode;
   if(tg && tg.openTelegramLink){
@@ -1246,6 +1301,23 @@ async function submitWithdraw(){
   document.getElementById('wAmount').value='';
   await refreshUser(); renderAll();
   toast('Withdrawal request submitted!', 'success');
+}
+
+/* ---------------- Approved Withdrawals Check ---------------- */
+async function checkApprovedWithdrawals(){
+  try{
+    const q = await wCol.where('userId','==',uid).where('status','==','approved').where('proofSeen','==',false).limit(1).get();
+    if(!q.empty){
+      const w = q.docs[0].data();
+      const toastEl = document.getElementById('withdrawToast');
+      document.getElementById('withdrawToastMsg').textContent = 'Your withdrawal of ' + fmt(w.netAmount) + ' ETB via ' + w.method.toUpperCase() + ' has been approved! Please check your wallet.';
+      toastEl.style.display = 'block';
+      // Auto-hide after 10 seconds
+      setTimeout(() => { toastEl.style.display = 'none'; }, 10000);
+    }
+  }catch(e){
+    console.error('Check approved withdrawals error', e);
+  }
 }
 
 /* ---------------- suggestions / support ---------------- */
@@ -1335,14 +1407,12 @@ async function checkNotifications(){
     const notif = snap.docs[0].data();
     const notifId = snap.docs[0].id;
     
-    // Check if user has dismissed this notification
     const dismissed = sessionStorage.getItem('notif_dismissed_' + notifId);
     if(dismissed === 'true'){
       document.getElementById('notificationPopup').style.display = 'none';
       return;
     }
     
-    // Check if 24 hours have passed
     const created = notif.createdAt && notif.createdAt.toDate ? notif.createdAt.toDate() : new Date();
     const hoursPassed = (Date.now() - created.getTime()) / (1000 * 60 * 60);
     const expiryHours = notif.expiryHours || 24;
@@ -1353,7 +1423,6 @@ async function checkNotifications(){
       return;
     }
     
-    // Show notification only when app opens
     document.getElementById('notificationText').textContent = notif.message || 'No message';
     document.getElementById('notificationTime').textContent = 'Posted: ' + created.toLocaleString();
     document.getElementById('notificationPopup').style.display = 'block';
