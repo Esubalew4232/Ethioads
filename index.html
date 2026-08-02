@@ -538,7 +538,9 @@ let scratchRevealed = false;
 let scratchWin = 0;
 let checkinProcessing = false;
 let clickedTasks = {};
-let pendingAutoAdRound2 = false; // Flags when we are waiting for user to return from ad 1
+let activeTaskGoId = null;
+let activeAdRound = 1;
+let adWatchInProgress = false;
 
 /* ---------------- init ---------------- */
 async function initApp(){
@@ -819,12 +821,9 @@ async function loadAvailableTasks(){
   }
 }
 
+// 1. "GO" BUTTON WILL ONLY WORK IF THEY REDIRECT TO THAT LINK
 function goTask(taskId, link){
-  clickedTasks[taskId] = true;
-  const compBtn = document.getElementById(`btn-comp-${taskId}`);
-  if(compBtn){
-    compBtn.style.background = 'var(--primary)';
-  }
+  activeTaskGoId = taskId; // Track which task they clicked Go on
   if(link && link.startsWith('http')){
     if(tg && tg.openLink){
       tg.openLink(link);
@@ -839,7 +838,7 @@ function goTask(taskId, link){
 async function completeTask(taskId, rewardAmount){
   try{
     if(!clickedTasks[taskId]){
-      toast("Please click 'Go' first to visit the link!", 'error');
+      toast("Please click 'Go' and visit the link first!", 'error');
       return;
     }
     
@@ -1238,10 +1237,11 @@ async function redeemPromo(){
   }catch(e){ toast('Could not redeem code', 'error'); }
 }
 
-/* ---------------- watch ad (with Auto-Second Ad & Reward ONLY AFTER 2 ADS) ---------------- */
+/* ---------------- watch ad (with Auto-Second Ad & NO FREE POINTS WITHOUT ADS) ---------------- */
 const ADS_PER_WATCH = 2; // show two ads per Watch Ad press
 
-async function watchAd(){
+// Hidden trigger: if we are waiting for Ad 2 and user clicks hidden Watch Ad button
+function watchAd(){
   if(adCooldown){ toast('Please wait a moment before the next ad', 'error'); return; }
   const last = currentUser.lastAdTime && currentUser.lastAdTime.toDate ? currentUser.lastAdTime.toDate() : null;
   if(last && (Date.now()-last.getTime()) < 5000){ toast('Please wait a few seconds between ads', 'error'); return; }
@@ -1249,50 +1249,68 @@ async function watchAd(){
   const btn = document.getElementById('watchAdBtn');
   btn.disabled = true;
 
-  // --- 1. TRIGGER FIRST AD ON CLICK ---
-  triggerMonetagAd();
-
-  for(let round=1; round<=ADS_PER_WATCH; round++){
-    if (round === 2) {
-      pendingAutoAdRound2 = true;
-      triggerMonetagAd();
-    }
-    // Await completion of each ad round
-    await playOneAdRound(round, ADS_PER_WATCH);
+  // 2. CHECK IF THERE IS AN AD AVAILABLE
+  const adServed = triggerMonetagAd();
+  if (!adServed) {
+    toast('No ad available right now. Please try again in a few moments.', 'error');
+    btn.disabled = false;
+    return;
   }
 
-  pendingAutoAdRound2 = false;
-  
-  // 2. REWARD IS GRANTED ONLY ONCE, AT THE END OF WATCHING BOTH (2) ADS:
-  rewardAd();
+  playOneAdRound(activeAdRound, ADS_PER_WATCH).then(() => {
+    if (activeAdRound === 1) {
+      // Finished ad 1, get ready for auto-triggering ad 2
+      activeAdRound = 2;
+      btn.disabled = false;
+    } else {
+      // Finished ad 2, award points!
+      activeAdRound = 1;
+      rewardAd();
+    }
+  });
 }
 
-// Trigger Monetag Ad safely
+// Returns TRUE if ad trigger was attempted/successful
 function triggerMonetagAd() {
   try {
     if (typeof show_11480597 === 'function') {
       show_11480597();
+      return true;
     } else {
       const fallbackUrl = "https://libtl.com/native?zone=11480597";
       if (tg && tg.openLink) {
         tg.openLink(fallbackUrl);
+        return true;
       } else if (window.open) {
         window.open(fallbackUrl, "_blank");
+        return true;
       }
     }
   } catch (e) {
     console.log('Monetag ad trigger error:', e);
   }
+  return false;
 }
 
-// AUTOMATIC HIDDEN TRIGGER:
-// Detects when the user returns to the app from watching ad 1 and auto-opens ad 2
+// 3. AUTOMATICALLY CLICK HIDDEN WATCH AD BUTTON WHEN THEY COME BACK FOR AD 2
 document.addEventListener("visibilitychange", () => {
-  if (document.visibilityState === "visible" && pendingAutoAdRound2) {
-    pendingAutoAdRound2 = false;
-    setTimeout(() => {
-      triggerMonetagAd();
-    }, 400);
+  if (document.visibilityState === "visible") {
+    // Check if we are waiting for task redirect
+    if (activeTaskGoId) {
+      clickedTasks[activeTaskGoId] = true;
+      const compBtn = document.getElementById(`btn-comp-${activeTaskGoId}`);
+      if (compBtn) compBtn.style.background = 'var(--primary)';
+      activeTaskGoId = null;
+    }
+    // Check if we are waiting for Ad 2
+    if (activeAdRound === 2) {
+      setTimeout(() => {
+        const btn = document.getElementById('watchAdBtn');
+        if (btn && !btn.disabled) {
+          btn.click();
+        }
+      }, 500);
+    }
   }
 });
 
