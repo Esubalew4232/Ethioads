@@ -191,6 +191,14 @@ nav.bottom button.active .ic{opacity:1;}
 #withdrawToast{display:none; position:fixed; bottom:100px; left:50%; transform:translateX(-50%); width:calc(100% - 32px); max-width:448px; z-index:3000; background:var(--success); color:#fff; border-radius:16px; padding:16px 20px; box-shadow:0 8px 32px rgba(0,0,0,.5); animation:slideUp .3s ease; text-align:center;}
 @keyframes slideUp{from{opacity:0; transform:translateX(-50%) translateY(20px);} to{opacity:1; transform:translateX(-50%) translateY(0);}}
 #withdrawToast .close-toast{position:absolute; top:8px; right:12px; font-size:18px; color:rgba(255,255,255,.7); cursor:pointer;}
+
+/* Continue-ad one-tap prompt (real user gesture required by browsers) */
+#continueAdPrompt{position:fixed; bottom:100px; left:50%; transform:translateX(-50%); z-index:3500; background:linear-gradient(135deg,var(--primary),var(--secondary)); color:#fff; padding:14px 22px; border-radius:16px; font-weight:700; font-size:14px; box-shadow:0 8px 24px rgba(108,92,231,.5); display:flex; align-items:center; gap:10px; animation:slideUp .3s ease; cursor:pointer;}
+
+/* Withdraw history filter tabs */
+.wh-tabs{display:flex; gap:6px; margin-bottom:10px;}
+.wh-tabs button{flex:1; padding:8px 4px; border-radius:10px; font-size:11.5px; font-weight:700; background:var(--card2); color:var(--text2); border:1px solid var(--border);}
+.wh-tabs button.active{background:var(--primary); color:#fff; border-color:var(--primary);}
 </style>
 </head>
 <body>
@@ -356,6 +364,12 @@ nav.bottom button.active .ic{opacity:1;}
     <button class="big-btn" onclick="submitWithdraw()">Request Withdrawal</button>
 
     <div class="section-title">📄 Withdrawal History</div>
+    <div class="wh-tabs">
+      <button class="active" data-f="all" onclick="setWithdrawFilter('all')">All</button>
+      <button data-f="pending" onclick="setWithdrawFilter('pending')">⏳ Pending</button>
+      <button data-f="approved" onclick="setWithdrawFilter('approved')">✅ Approved</button>
+      <button data-f="rejected" onclick="setWithdrawFilter('rejected')">❌ Rejected</button>
+    </div>
     <div class="card" id="wHistoryBox"></div>
   </div>
 
@@ -541,6 +555,8 @@ let clickedTasks = {};
 let activeTaskGoId = null;
 let activeAdRound = 1;
 let adWatchInProgress = false;
+let withdrawHistoryCache = [];
+let withdrawFilter = 'all';
 
 /* ---------------- init ---------------- */
 async function initApp(){
@@ -917,33 +933,65 @@ async function loadReferralHistory(){
   }catch(e){ box.innerHTML=''; }
 }
 
+/* ---------------- WITHDRAW HISTORY (fixed) ----------------
+   Previous version used .where('userId','==',uid).orderBy('createdAt','desc'),
+   which requires a Firestore COMPOSITE INDEX. If that index doesn't exist yet,
+   Firestore throws an error and the catch block shows "Could not load history".
+   Fix: query by userId only (single-field, always indexed), then sort
+   client-side. This never needs a composite index. */
 async function loadWithdrawHistory(){
   const box = document.getElementById('wHistoryBox');
+  box.innerHTML = '<div style="font-size:12px;color:var(--text2);text-align:center;padding:10px;">Loading…</div>';
   try{
-    const q = await wCol.where('userId','==',uid).orderBy('createdAt','desc').limit(15).get();
-    if(q.empty){ 
-      box.innerHTML='<div style="font-size:12px;color:var(--text2);text-align:center;padding:10px;">No withdrawals yet</div>'; 
-      return; 
-    }
-    box.innerHTML = q.docs.map(d=>{
-      const t=d.data(); 
-      const dt = t.createdAt && t.createdAt.toDate ? t.createdAt.toDate() : new Date();
-      const statusIcons = {pending:'⏳', approved:'✅', rejected:'❌'};
-      const isApproved = t.status === 'approved';
-      const isRejected = t.status === 'rejected';
-      return `<div class="activity-row" onclick="showWithdrawalDetail('${d.id}')">
-        <div class="activity-ic">${statusIcons[t.status]||'💸'}</div>
-        <div class="activity-desc">
-          <div>${t.method.toUpperCase()} · ${fmt(t.netAmount)} ETB</div>
-          <div class="t">${dt.toLocaleDateString()} ${isApproved ? '✅ Approved' : ''} ${isRejected ? '❌ Rejected' : ''}</div>
-        </div>
-        <span class="badge ${t.status}">${t.status}</span>
-      </div>`;
-    }).join('');
-  }catch(e){ 
+    const q = await wCol.where('userId','==',uid).limit(100).get();
+    let docs = q.docs.map(d => ({ id:d.id, ...d.data() }));
+    docs.sort((a,b) => {
+      const at = a.createdAt && a.createdAt.toDate ? a.createdAt.toDate().getTime() : 0;
+      const bt = b.createdAt && b.createdAt.toDate ? b.createdAt.toDate().getTime() : 0;
+      return bt - at;
+    });
+    withdrawHistoryCache = docs;
+    renderWithdrawHistory();
+  }catch(e){
     console.error('Load withdraw history error', e);
-    box.innerHTML='<div style="font-size:12px;color:var(--text2);text-align:center;padding:10px;">Could not load history</div>';
+    box.innerHTML = '<div style="font-size:12px;color:var(--text2);text-align:center;padding:10px;">Could not load history<br><span style="opacity:.6; font-size:10.5px;">'+(e.message||'')+'</span></div>';
   }
+}
+
+function setWithdrawFilter(f){
+  withdrawFilter = f;
+  document.querySelectorAll('.wh-tabs button').forEach(b => b.classList.toggle('active', b.dataset.f === f));
+  renderWithdrawHistory();
+}
+
+function renderWithdrawHistory(){
+  const box = document.getElementById('wHistoryBox');
+  let docs = withdrawHistoryCache;
+  if(withdrawFilter !== 'all'){
+    docs = docs.filter(t => t.status === withdrawFilter);
+  }
+  docs = docs.slice(0, 15);
+
+  if(docs.length === 0){
+    const msg = withdrawFilter === 'all' ? 'No withdrawals yet' : 'No '+withdrawFilter+' withdrawals';
+    box.innerHTML = '<div style="font-size:12px;color:var(--text2);text-align:center;padding:10px;">'+msg+'</div>';
+    return;
+  }
+
+  const statusIcons = {pending:'⏳', approved:'✅', rejected:'❌'};
+  box.innerHTML = docs.map(t=>{
+    const dt = t.createdAt && t.createdAt.toDate ? t.createdAt.toDate() : new Date();
+    const isApproved = t.status === 'approved';
+    const isRejected = t.status === 'rejected';
+    return `<div class="activity-row" onclick="showWithdrawalDetail('${t.id}')">
+      <div class="activity-ic">${statusIcons[t.status]||'💸'}</div>
+      <div class="activity-desc">
+        <div>${t.method.toUpperCase()} · ${fmt(t.netAmount)} ETB</div>
+        <div class="t">${dt.toLocaleDateString()} ${isApproved ? '✅ Approved' : ''} ${isRejected ? '❌ Rejected' : ''}</div>
+      </div>
+      <span class="badge ${t.status}">${t.status}</span>
+    </div>`;
+  }).join('');
 }
 
 async function showWithdrawalDetail(id){
@@ -1237,10 +1285,17 @@ async function redeemPromo(){
   }catch(e){ toast('Could not redeem code', 'error'); }
 }
 
-/* ---------------- watch ad (with Auto-Second Ad & NO FREE POINTS WITHOUT ADS) ---------------- */
+/* ---------------- watch ad (2 ads in a row, 70 points total) ----------------
+   IMPORTANT BROWSER LIMITATION:
+   Mobile browsers / Telegram WebView only allow window.open() / ad-SDK popups
+   during a REAL user gesture (an actual tap). A script-triggered btn.click()
+   fired from a visibilitychange event does NOT count as a real gesture, so a
+   fully silent auto-click WILL get blocked by the browser — that's the bug
+   you were hitting. Real workaround: the instant the user returns from ad 1,
+   show a small floating "Tap to continue" pill. One quick tap plays ad 2
+   automatically. Total reward (70 pts) is only granted after both ads finish. */
 const ADS_PER_WATCH = 2; // show two ads per Watch Ad press
 
-// Hidden trigger: if we are waiting for Ad 2 and user clicks hidden Watch Ad button
 function watchAd(){
   if(adCooldown){ toast('Please wait a moment before the next ad', 'error'); return; }
   const last = currentUser.lastAdTime && currentUser.lastAdTime.toDate ? currentUser.lastAdTime.toDate() : null;
@@ -1249,7 +1304,6 @@ function watchAd(){
   const btn = document.getElementById('watchAdBtn');
   btn.disabled = true;
 
-  // 2. CHECK IF THERE IS AN AD AVAILABLE
   const adServed = triggerMonetagAd();
   if (!adServed) {
     toast('No ad available right now. Please try again in a few moments.', 'error');
@@ -1259,18 +1313,19 @@ function watchAd(){
 
   playOneAdRound(activeAdRound, ADS_PER_WATCH).then(() => {
     if (activeAdRound === 1) {
-      // Finished ad 1, get ready for auto-triggering ad 2
+      // Finished ad 1 — wait for the user to come back, then prompt for ad 2
       activeAdRound = 2;
       btn.disabled = false;
+      btn.textContent = 'Waiting for ad 2…';
     } else {
-      // Finished ad 2, award points!
+      // Finished ad 2 — award the full 70 points now
       activeAdRound = 1;
+      btn.textContent = '▶️ Watch Ad';
       rewardAd();
     }
   });
 }
 
-// Returns TRUE if ad trigger was attempted/successful
 function triggerMonetagAd() {
   try {
     if (typeof show_11480597 === 'function') {
@@ -1292,27 +1347,36 @@ function triggerMonetagAd() {
   return false;
 }
 
-// 3. AUTOMATICALLY CLICK HIDDEN WATCH AD BUTTON WHEN THEY COME BACK FOR AD 2
+// When the user comes back to the tab/app...
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible") {
-    // Check if we are waiting for task redirect
+    // Task "Go" flow — mark as visited
     if (activeTaskGoId) {
       clickedTasks[activeTaskGoId] = true;
       const compBtn = document.getElementById(`btn-comp-${activeTaskGoId}`);
       if (compBtn) compBtn.style.background = 'var(--primary)';
       activeTaskGoId = null;
     }
-    // Check if we are waiting for Ad 2
+    // Waiting for ad 2 — show a real one-tap prompt (browsers block silent auto-clicks)
     if (activeAdRound === 2) {
-      setTimeout(() => {
-        const btn = document.getElementById('watchAdBtn');
-        if (btn && !btn.disabled) {
-          btn.click();
-        }
-      }, 500);
+      setTimeout(showContinueAdPrompt, 400);
     }
   }
 });
+
+function showContinueAdPrompt(){
+  if (document.getElementById('continueAdPrompt')) return; // already showing
+  if (activeAdRound !== 2) return;
+  const el = document.createElement('div');
+  el.id = 'continueAdPrompt';
+  el.innerHTML = '▶️ &nbsp;Tap to continue — Ad 2 of 2 (get 70 pts)';
+  el.onclick = () => {
+    el.remove();
+    const btn = document.getElementById('watchAdBtn');
+    if (btn && !btn.disabled) btn.click(); // real tap now, so ad SDK is allowed to fire
+  };
+  document.body.appendChild(el);
+}
 
 function playOneAdRound(round, total){
   return new Promise(resolve => {
@@ -1345,7 +1409,7 @@ function playOneAdRound(round, total){
   });
 }
 
-// Gives exactly 70 points after finishing the full loop
+// Gives exactly 70 points TOTAL after both ads finish (not per ad)
 async function rewardAd(){
   const reward = settings.adReward || 70;
   const ref = usersCol.doc(uid);
@@ -1437,7 +1501,7 @@ async function submitWithdraw(){
 
   const gross = pts*settings.conversionRate, fee=gross*settings.transactionFee, net=gross-fee;
 
-  await wCol.add({ userId:uid, amount:gross, netAmount:net, fee:fee, pointsUsed:pts, method:wMethod, details, status:'pending', createdAt:FieldValue.serverTimestamp(), processedAt:null });
+  await wCol.add({ userId:uid, amount:gross, netAmount:net, fee:fee, pointsUsed:pts, method:wMethod, details, status:'pending', proofSeen:false, createdAt:FieldValue.serverTimestamp(), processedAt:null });
   await usersCol.doc(uid).update({ points:FieldValue.increment(-pts) });
   await txCol.add({userId:uid, amount:-pts, description:'Withdrawal request ('+wMethod+')', type:'withdrawal', createdAt:FieldValue.serverTimestamp()});
 
@@ -1446,15 +1510,19 @@ async function submitWithdraw(){
   toast('Withdrawal request submitted!', 'success');
 }
 
-/* ---------------- Approved Withdrawals Check ---------------- */
+/* ---------------- Approved Withdrawals Check ----------------
+   Same composite-index issue as history: where()+where() on two different
+   fields (status + proofSeen) needs a composite index too. Fixed by
+   filtering status only server-side, then filtering proofSeen client-side. */
 async function checkApprovedWithdrawals(){
   try{
-    const q = await wCol.where('userId','==',uid).where('status','==','approved').where('proofSeen','==',false).limit(1).get();
-    if(!q.empty){
-      const w = q.docs[0].data();
+    const q = await wCol.where('userId','==',uid).where('status','==','approved').limit(20).get();
+    const unseen = q.docs.find(d => d.data().proofSeen === false);
+    if(unseen){
+      const w = unseen.data();
       const toastEl = document.getElementById('withdrawToast');
       document.getElementById('withdrawToastMsg').innerHTML = 'Your withdrawal of ' + fmt(w.netAmount) + ' ETB via ' + w.method.toUpperCase() + ' has been approved.<br>Please check your wallet.<br><br>If you have not received your payment, contact:<br><a href="https://t.me/Ethio_adsadminbot" target="_blank" style="color:#fff; text-decoration:underline;" onclick="event.stopPropagation()">t.me/Ethio_adsadminbot</a>';
-      await wCol.doc(q.docs[0].id).update({ proofSeen: true });
+      await wCol.doc(unseen.id).update({ proofSeen: true });
       toastEl.style.display = 'block';
       setTimeout(() => { toastEl.style.display = 'none'; }, 10000);
     }
