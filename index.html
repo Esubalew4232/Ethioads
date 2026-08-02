@@ -491,15 +491,16 @@ nav.bottom button.active .ic{opacity:1;}
 </div>
 
 <script>
-/* ---------------- Firebase ---------------- */
+/* ---------------- Firebase (NEW ethio-ads-bot DATABASE) ---------------- */
 const firebaseConfig = {
-  apiKey: "AIzaSyCLitgVv2cdN15GJAU18mTovWGTsIeaUU4",
-  authDomain: "ethio-207cb.firebaseapp.com",
-  projectId: "ethio-207cb",
-  storageBucket: "ethio-207cb.firebasestorage.app",
-  messagingSenderId: "104816909592",
-  appId: "1:104816909592:web:807939dfd41d56fb42126d",
-  measurementId: "G-VFKJJRZ93R"
+  apiKey: "AIzaSyDcsgoLIPlWLsXxBzm-nI6LLRx4vk6aw0s",
+  authDomain: "ethio-ads-bot.firebaseapp.com",
+  databaseURL: "https://ethio-ads-bot-default-rtdb.firebaseio.com",
+  projectId: "ethio-ads-bot",
+  storageBucket: "ethio-ads-bot.firebasestorage.app",
+  messagingSenderId: "848290202856",
+  appId: "1:848290202856:web:f3dacfeeb40c6ac2f0f55d",
+  measurementId: "G-Q6KDEYX58J"
 };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
@@ -821,9 +822,8 @@ async function loadAvailableTasks(){
   }
 }
 
-// 1. "GO" BUTTON WILL ONLY WORK IF THEY REDIRECT TO THAT LINK
 function goTask(taskId, link){
-  activeTaskGoId = taskId; // Track which task they clicked Go on
+  activeTaskGoId = taskId;
   if(link && link.startsWith('http')){
     if(tg && tg.openLink){
       tg.openLink(link);
@@ -1240,7 +1240,6 @@ async function redeemPromo(){
 /* ---------------- watch ad (with Auto-Second Ad & NO FREE POINTS WITHOUT ADS) ---------------- */
 const ADS_PER_WATCH = 2; // show two ads per Watch Ad press
 
-// Hidden trigger: if we are waiting for Ad 2 and user clicks hidden Watch Ad button
 function watchAd(){
   if(adCooldown){ toast('Please wait a moment before the next ad', 'error'); return; }
   const last = currentUser.lastAdTime && currentUser.lastAdTime.toDate ? currentUser.lastAdTime.toDate() : null;
@@ -1249,7 +1248,6 @@ function watchAd(){
   const btn = document.getElementById('watchAdBtn');
   btn.disabled = true;
 
-  // 2. CHECK IF THERE IS AN AD AVAILABLE
   const adServed = triggerMonetagAd();
   if (!adServed) {
     toast('No ad available right now. Please try again in a few moments.', 'error');
@@ -1259,18 +1257,15 @@ function watchAd(){
 
   playOneAdRound(activeAdRound, ADS_PER_WATCH).then(() => {
     if (activeAdRound === 1) {
-      // Finished ad 1, get ready for auto-triggering ad 2
       activeAdRound = 2;
       btn.disabled = false;
     } else {
-      // Finished ad 2, award points!
       activeAdRound = 1;
       rewardAd();
     }
   });
 }
 
-// Returns TRUE if ad trigger was attempted/successful
 function triggerMonetagAd() {
   try {
     if (typeof show_11480597 === 'function') {
@@ -1292,17 +1287,14 @@ function triggerMonetagAd() {
   return false;
 }
 
-// 3. AUTOMATICALLY CLICK HIDDEN WATCH AD BUTTON WHEN THEY COME BACK FOR AD 2
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible") {
-    // Check if we are waiting for task redirect
     if (activeTaskGoId) {
       clickedTasks[activeTaskGoId] = true;
       const compBtn = document.getElementById(`btn-comp-${activeTaskGoId}`);
       if (compBtn) compBtn.style.background = 'var(--primary)';
       activeTaskGoId = null;
     }
-    // Check if we are waiting for Ad 2
     if (activeAdRound === 2) {
       setTimeout(() => {
         const btn = document.getElementById('watchAdBtn');
@@ -1345,7 +1337,6 @@ function playOneAdRound(round, total){
   });
 }
 
-// Gives exactly 70 points after finishing the full loop
 async function rewardAd(){
   const reward = settings.adReward || 70;
   const ref = usersCol.doc(uid);
