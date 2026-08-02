@@ -274,7 +274,7 @@ nav.bottom button.active .ic{opacity:1;}
 
     <div class="card" style="margin-top:14px; text-align:center;">
       <div style="font-size:14px; font-weight:700; margin-bottom:4px;">Watch an Ad</div>
-      <div style="font-size:12px; color:var(--text2); margin-bottom:14px;">Earn 70 points per ad watched</div>
+      <div style="font-size:12px; color:var(--text2); margin-bottom:14px;">Earn <span id="adRewardLbl">100</span> points per ad watched</div>
       <button class="big-btn" id="watchAdBtn" onclick="watchAd()">▶️ Watch Ad</button>
     </div>
 
@@ -286,7 +286,7 @@ nav.bottom button.active .ic{opacity:1;}
       <div class="progress-outer"><div class="progress-inner" id="missionBar" style="width:0%"></div></div>
     </div>
 
-    <div class="section-title">📋 Available Tasks & Channels</div>
+    <div class="section-title">📋 Available Tasks</div>
     <div class="card" id="availableTasksBox">
       <div style="font-size:12px; color:var(--text2); text-align:center; padding:10px;">Loading tasks...</div>
     </div>
@@ -430,10 +430,9 @@ nav.bottom button.active .ic{opacity:1;}
 <div class="modal-overlay" id="modalSpin"><div class="modal-sheet"><span class="modal-close" onclick="closeModal('modalSpin')">✕</span>
   <h3>🎡 Lucky Spin</h3>
   <div class="wheel-wrap">
-    <div id="spinAvailTxt" style="font-size:12.5px; color:var(--text2); text-align:center;">Spins today: 0/2</div>
     <div class="wheel-pointer"></div>
     <div class="wheel" id="wheelEl"></div>
-    <button class="big-btn" id="spinBtn" onclick="doSpin()">Spin Wheel</button>
+    <button class="big-btn" id="spinBtn" onclick="doSpin()">Spin (Win 10–500 pts)</button>
   </div>
 </div></div>
 
@@ -452,7 +451,6 @@ nav.bottom button.active .ic{opacity:1;}
 
 <div class="modal-overlay" id="modalSuggest"><div class="modal-sheet"><span class="modal-close" onclick="closeModal('modalSuggest')">✕</span>
   <h3>💡 Suggest a Feature</h3>
-  <div style="font-size:12px; color:var(--text2); margin-bottom:10px;">Earn 10 points for your first suggestion!</div>
   <div class="field"><textarea id="suggestInput" rows="4" placeholder="What would you like to see in Ethio Ads?"></textarea></div>
   <button class="big-btn" onclick="submitSuggestion()">Submit Suggestion</button>
 </div></div>
@@ -491,16 +489,15 @@ nav.bottom button.active .ic{opacity:1;}
 </div>
 
 <script>
-/* ---------------- Firebase (NEW ethio-ads-bot DATABASE) ---------------- */
+/* ---------------- Firebase ---------------- */
 const firebaseConfig = {
-  apiKey: "AIzaSyDcsgoLIPlWLsXxBzm-nI6LLRx4vk6aw0s",
-  authDomain: "ethio-ads-bot.firebaseapp.com",
-  databaseURL: "https://ethio-ads-bot-default-rtdb.firebaseio.com",
-  projectId: "ethio-ads-bot",
-  storageBucket: "ethio-ads-bot.firebasestorage.app",
-  messagingSenderId: "848290202856",
-  appId: "1:848290202856:web:f3dacfeeb40c6ac2f0f55d",
-  measurementId: "G-Q6KDEYX58J"
+  apiKey: "AIzaSyCLitgVv2cdN15GJAU18mTovWGTsIeaUU4",
+  authDomain: "ethio-207cb.firebaseapp.com",
+  projectId: "ethio-207cb",
+  storageBucket: "ethio-207cb.firebasestorage.app",
+  messagingSenderId: "104816909592",
+  appId: "1:104816909592:web:807939dfd41d56fb42126d",
+  measurementId: "G-VFKJJRZ93R"
 };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
@@ -522,12 +519,12 @@ let tg = window.Telegram ? window.Telegram.WebApp : null;
 let currentUser = null;
 let uid = null;
 let settings = {
-  welcomeBonus:200, dailyBonus:100, referralReward:500,
-  adReward:70, adTimer:30, minWithdrawal:6000, conversionRate:0.005, transactionFee:0.10,
+  welcomeBonus:200, dailyBonus:100, referralReward:500, referralLevel2Reward:100,
+  adReward:100, adTimer:30, minWithdrawal:6000, conversionRate:0.005, transactionFee:0.10,
   maintenanceMode:false, withdrawEnabled:true, referralEnabled:true, tasksEnabled:true,
   refComp1:100, refComp2:80, refComp3:50, refComp4to10:30,
   supportUsername:'Ethio_adbot', usdtRate:170, announcement:'', announcementActive:false,
-  scratchPerAds:5, botUsername:'Ethio_adbot', maxSpinsPerDay:2
+  scratchPerAds:5, botUsername:'Ethio_adbot'
 };
 let wMethod = 'telebirr';
 let adCooldown = false;
@@ -538,10 +535,6 @@ let spinning = false;
 let scratchRevealed = false;
 let scratchWin = 0;
 let checkinProcessing = false;
-let clickedTasks = {};
-let activeTaskGoId = null;
-let activeAdRound = 1;
-let adWatchInProgress = false;
 
 /* ---------------- init ---------------- */
 async function initApp(){
@@ -562,7 +555,9 @@ async function initApp(){
     renderAll();
     listenLeaderboard();
     
+    // Check for notifications only when app opens
     await checkNotifications();
+    // Check for approved withdrawals
     await checkApprovedWithdrawals();
 
     document.getElementById('loading').style.display='none';
@@ -580,6 +575,7 @@ async function loadSettings(){
     else { await settingsDoc.set(settings); }
   }catch(e){ console.warn('settings load failed, using defaults', e); }
 
+  document.getElementById('adRewardLbl').textContent = settings.adReward;
   document.getElementById('wMin').textContent = settings.minWithdrawal;
   document.getElementById('prize1').textContent = settings.refComp1+' ETB';
   document.getElementById('prize2').textContent = settings.refComp2+' ETB';
@@ -616,15 +612,7 @@ async function loadOrCreateUser(tgUser, startParam){
   if(snap.exists){
     currentUser = snap.data();
     if(currentUser.lastMissionDate !== todayStr()){
-      await ref.update({ 
-        missionProgress:0, 
-        missionRewarded:false, 
-        lastMissionDate:todayStr(), 
-        todayEarnings:0, 
-        todayAdsCount:0, 
-        scratchAvailable:0,
-        todaySpinsCount:0 
-      });
+      await ref.update({ missionProgress:0, missionRewarded:false, lastMissionDate:todayStr(), todayEarnings:0, todayAdsCount:0, scratchAvailable:0 });
       const s2 = await ref.get(); currentUser = s2.data();
     }
     if(currentUser.checkInDone && currentUser.lastCheckIn){
@@ -665,8 +653,6 @@ async function loadOrCreateUser(tgUser, startParam){
     lastMissionDate: todayStr(),
     scratchUsed: 0,
     scratchAvailable: 0,
-    todaySpinsCount: 0,
-    suggestionRewarded: false,
     usedPromoCodes: [],
     completedTasks: [],
     lastAdTime: null,
@@ -690,6 +676,16 @@ async function loadOrCreateUser(tgUser, startParam){
       });
       await txCol.add({ userId:refId, amount:settings.referralReward, description:'Referral bonus: '+newUser.firstName, type:'referral', createdAt:FieldValue.serverTimestamp() });
       await refCol.add({ referrerId:refId, referredId:uid, referredName:newUser.firstName, earnedPoints:settings.referralReward, createdAt:FieldValue.serverTimestamp() });
+
+      const refData = refDoc.data();
+      if(refData.referredBy){
+        await usersCol.doc(refData.referredBy).update({
+          points: FieldValue.increment(settings.referralLevel2Reward),
+          totalEarnings: FieldValue.increment(settings.referralLevel2Reward),
+          referralEarnings: FieldValue.increment(settings.referralLevel2Reward)
+        });
+        await txCol.add({ userId:refData.referredBy, amount:settings.referralLevel2Reward, description:'Level 2 referral bonus', type:'referral', createdAt:FieldValue.serverTimestamp() });
+      }
     }
   }
 
@@ -778,41 +774,37 @@ function renderAchievements(u, level){
     `<div class="achv-chip ${d.cond?'':'locked'}">${d.l}</div>`).join('');
 }
 
-/* ---------------- Available Tasks & Channels ---------------- */
+/* ---------------- Available Tasks ---------------- */
 async function loadAvailableTasks(){
   const box = document.getElementById('availableTasksBox');
   try{
-    const snap = await tasksCol.orderBy('createdAt', 'desc').get();
+    const snap = await tasksCol.where('active', '==', true).orderBy('createdAt', 'desc').get();
     const tasks = snap.docs.map(d => ({id: d.id, ...d.data()}));
     
     if(tasks.length === 0){
-      box.innerHTML = '<div style="font-size:12px; color:var(--text2); text-align:center; padding:10px;">No tasks or channels available right now</div>';
+      box.innerHTML = '<div style="font-size:12px; color:var(--text2); text-align:center; padding:10px;">No tasks available right now</div>';
       return;
     }
     
     const typeEmojis = {
       visit: '🌐', join: '📢', whatsapp: '💬', 
-      tiktok: '🎵', instagram: '📸', youtube: '▶️', review: '📝', channel: '📢'
+      tiktok: '🎵', instagram: '📸', youtube: '▶️', review: '📝'
     };
     
     const completedTasks = currentUser.completedTasks || [];
     
     box.innerHTML = tasks.map(t => {
       const isCompleted = completedTasks.includes(t.id);
-      const rewardVal = t.reward || 50;
-      const hasClickedGo = clickedTasks[t.id] === true;
-      const completeBtnColor = hasClickedGo ? 'var(--primary)' : 'var(--danger)';
-      
       return `<div style="display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--border); ${isCompleted ? 'opacity:0.5;' : ''}">
         <div style="font-size:24px;">${typeEmojis[t.type] || '🎯'}</div>
         <div style="flex:1;">
-          <div style="font-weight:600; font-size:13px;">${t.title || 'Task'}</div>
-          <div style="font-size:11px; color:var(--text2);">${t.type || 'Task'} · +${rewardVal} pts</div>
+          <div style="font-weight:600; font-size:13px;">${t.title}</div>
+          <div style="font-size:11px; color:var(--text2);">${t.type} · ${t.link || ''}</div>
         </div>
-        <div style="display:flex; gap:6px; align-items:center;">
+        <div style="display:flex; flex-direction:column; align-items:flex-end;">
+          <div style="color:var(--success); font-weight:700; font-size:13px;">+${t.reward} pts</div>
           ${isCompleted ? '<span style="font-size:10px; color:var(--text2);">✅ Completed</span>' : 
-            `<button class="btn" style="padding:6px 12px; font-size:11px; background:var(--secondary); color:#fff; border-radius:8px; font-weight:700;" onclick="goTask('${t.id}', '${t.link || ''}')">Go</button>
-             <button class="btn" id="btn-comp-${t.id}" style="padding:6px 12px; font-size:11px; background:${completeBtnColor}; color:#fff; border-radius:8px; font-weight:700;" onclick="completeTask('${t.id}', ${rewardVal})">Complete</button>`}
+            `<button class="btn" style="padding:4px 12px; font-size:11px; background:var(--primary); color:#fff; border-radius:8px;" onclick="completeTask('${t.id}')">Complete</button>`}
         </div>
       </div>`;
     }).join('');
@@ -822,23 +814,13 @@ async function loadAvailableTasks(){
   }
 }
 
-function goTask(taskId, link){
-  activeTaskGoId = taskId;
-  if(link && link.startsWith('http')){
-    if(tg && tg.openLink){
-      tg.openLink(link);
-    } else {
-      window.open(link, '_blank');
-    }
-  } else {
-    toast('Task link opened!', 'success');
-  }
-}
-
-async function completeTask(taskId, rewardAmount){
+async function completeTask(taskId){
   try{
-    if(!clickedTasks[taskId]){
-      toast("Please click 'Go' and visit the link first!", 'error');
+    const taskDoc = await tasksCol.doc(taskId).get();
+    const task = taskDoc.data();
+    
+    if(!task || !task.active){
+      toast('This task is no longer available', 'error');
       return;
     }
     
@@ -849,17 +831,17 @@ async function completeTask(taskId, rewardAmount){
     }
     
     await usersCol.doc(uid).update({
-      points: FieldValue.increment(rewardAmount),
-      totalEarnings: FieldValue.increment(rewardAmount),
-      todayEarnings: FieldValue.increment(rewardAmount),
+      points: FieldValue.increment(task.reward),
+      totalEarnings: FieldValue.increment(task.reward),
+      todayEarnings: FieldValue.increment(task.reward),
       totalTasksCompleted: FieldValue.increment(1),
       completedTasks: FieldValue.arrayUnion(taskId)
     });
     
     await txCol.add({
       userId: uid,
-      amount: rewardAmount,
-      description: 'Completed Task/Channel',
+      amount: task.reward,
+      description: 'Task completed: ' + task.title,
       type: 'task',
       createdAt: FieldValue.serverTimestamp()
     });
@@ -867,7 +849,7 @@ async function completeTask(taskId, rewardAmount){
     await refreshUser();
     renderAll();
     loadAvailableTasks();
-    toast('+' + rewardAmount + ' points for completing task!', 'success');
+    toast('+' + task.reward + ' points for completing task!', 'success');
     confettiBurst();
   }catch(e){
     console.error('Complete task error', e);
@@ -1078,6 +1060,7 @@ async function doCheckin(){
   btn.disabled = true;
   
   try{
+    // Double check if already claimed
     const freshUser = await usersCol.doc(uid).get();
     if(freshUser.data().checkInDone){
       toast('Already claimed today!', 'error');
@@ -1111,79 +1094,20 @@ async function doCheckin(){
 }
 
 /* ---------------- spin ---------------- */
-function openSpin(){ 
-  const spinsToday = currentUser.todaySpinsCount || 0;
-  const maxSpins = settings.maxSpinsPerDay || 2;
-  
-  document.getElementById('spinAvailTxt').textContent = `Spins today: ${spinsToday}/${maxSpins}`;
-  document.getElementById('wheelEl').style.transform='rotate(0deg)'; 
-  
-  const btn = document.getElementById('spinBtn');
-  if(spinsToday >= maxSpins){
-    btn.disabled = true;
-    btn.textContent = 'Daily limit reached (Come back tomorrow)';
-  } else {
-    btn.disabled = false;
-    btn.textContent = 'Spin Wheel';
-  }
-  openModal('modalSpin'); 
-}
-
-function calculateWeightedSpin(){
-  const rand = Math.random() * 100;
-  if(rand < 90){
-    return Math.floor(Math.random() * 50) + 1; // 1 to 50
-  } else if(rand < 99){
-    return Math.floor(Math.random() * 21) + 50; // 50 to 70
-  } else if(rand < 99.9999){
-    return Math.floor(Math.random() * 11) + 70; // 70 to 80
-  } else {
-    return Math.floor(Math.random() * 101) + 200; // 200 to 300
-  }
-}
-
+function openSpin(){ document.getElementById('wheelEl').style.transform='rotate(0deg)'; openModal('modalSpin'); }
 async function doSpin(){
-  if(spinning) return;
-  const spinsToday = currentUser.todaySpinsCount || 0;
-  const maxSpins = settings.maxSpinsPerDay || 2;
-  
-  if(spinsToday >= maxSpins){
-    toast('You have reached your limit of 2 spins today!', 'error');
-    return;
-  }
-  
-  spinning = true;
-  const btn = document.getElementById('spinBtn'); 
-  btn.disabled = true;
-  
-  const win = calculateWeightedSpin();
+  if(spinning) return; spinning=true;
+  const btn = document.getElementById('spinBtn'); btn.disabled=true;
+  const win = Math.floor(Math.random()*491)+10;
   const spins = 5 + Math.random()*3;
   const finalDeg = spins*360 + Math.random()*360;
   document.getElementById('wheelEl').style.transform = 'rotate('+finalDeg+'deg)';
-  
   setTimeout(async ()=>{
-    await usersCol.doc(uid).update({ 
-      points: FieldValue.increment(win), 
-      totalEarnings: FieldValue.increment(win), 
-      todayEarnings: FieldValue.increment(win),
-      todaySpinsCount: FieldValue.increment(1)
-    });
+    await usersCol.doc(uid).update({ points:FieldValue.increment(win), totalEarnings:FieldValue.increment(win), todayEarnings:FieldValue.increment(win) });
     await txCol.add({userId:uid, amount:win, description:'Lucky Spin win', type:'spin', createdAt:FieldValue.serverTimestamp()});
-    await refreshUser(); 
-    renderAll();
-    spinning = false; 
-    
-    const newSpinsToday = currentUser.todaySpinsCount || 0;
-    document.getElementById('spinAvailTxt').textContent = `Spins today: ${newSpinsToday}/${maxSpins}`;
-    if(newSpinsToday >= maxSpins){
-      btn.disabled = true;
-      btn.textContent = 'Daily limit reached';
-    } else {
-      btn.disabled = false;
-    }
-
-    confettiBurst(); 
-    toast('🎉 You won '+win+' points!', 'success');
+    await refreshUser(); renderAll();
+    spinning=false; btn.disabled=false;
+    confettiBurst(); toast('🎉 You won '+win+' points!', 'success');
   }, 3600);
 }
 
@@ -1237,10 +1161,10 @@ async function redeemPromo(){
   }catch(e){ toast('Could not redeem code', 'error'); }
 }
 
-/* ---------------- watch ad (with Auto-Second Ad & NO FREE POINTS WITHOUT ADS) ---------------- */
+/* ---------------- watch ad ---------------- */
 const ADS_PER_WATCH = 2; // show two ads per Watch Ad press
 
-function watchAd(){
+async function watchAd(){
   if(adCooldown){ toast('Please wait a moment before the next ad', 'error'); return; }
   const last = currentUser.lastAdTime && currentUser.lastAdTime.toDate ? currentUser.lastAdTime.toDate() : null;
   if(last && (Date.now()-last.getTime()) < 5000){ toast('Please wait a few seconds between ads', 'error'); return; }
@@ -1248,63 +1172,12 @@ function watchAd(){
   const btn = document.getElementById('watchAdBtn');
   btn.disabled = true;
 
-  const adServed = triggerMonetagAd();
-  if (!adServed) {
-    toast('No ad available right now. Please try again in a few moments.', 'error');
-    btn.disabled = false;
-    return;
+  for(let round=1; round<=ADS_PER_WATCH; round++){
+    await playOneAdRound(round, ADS_PER_WATCH);
   }
 
-  playOneAdRound(activeAdRound, ADS_PER_WATCH).then(() => {
-    if (activeAdRound === 1) {
-      activeAdRound = 2;
-      btn.disabled = false;
-    } else {
-      activeAdRound = 1;
-      rewardAd();
-    }
-  });
+  rewardAd();
 }
-
-function triggerMonetagAd() {
-  try {
-    if (typeof show_11480597 === 'function') {
-      show_11480597();
-      return true;
-    } else {
-      const fallbackUrl = "https://libtl.com/native?zone=11480597";
-      if (tg && tg.openLink) {
-        tg.openLink(fallbackUrl);
-        return true;
-      } else if (window.open) {
-        window.open(fallbackUrl, "_blank");
-        return true;
-      }
-    }
-  } catch (e) {
-    console.log('Monetag ad trigger error:', e);
-  }
-  return false;
-}
-
-document.addEventListener("visibilitychange", () => {
-  if (document.visibilityState === "visible") {
-    if (activeTaskGoId) {
-      clickedTasks[activeTaskGoId] = true;
-      const compBtn = document.getElementById(`btn-comp-${activeTaskGoId}`);
-      if (compBtn) compBtn.style.background = 'var(--primary)';
-      activeTaskGoId = null;
-    }
-    if (activeAdRound === 2) {
-      setTimeout(() => {
-        const btn = document.getElementById('watchAdBtn');
-        if (btn && !btn.disabled) {
-          btn.click();
-        }
-      }, 500);
-    }
-  }
-});
 
 function playOneAdRound(round, total){
   return new Promise(resolve => {
@@ -1334,11 +1207,15 @@ function playOneAdRound(round, total){
         resolve();
       }
     }, 200);
+
+    if(typeof show_11480597 === 'function'){
+      try { show_11480597(); } catch(e) { console.log('Ad load skipped'); }
+    }
   });
 }
 
 async function rewardAd(){
-  const reward = settings.adReward || 70;
+  const reward = settings.adReward || 100;
   const ref = usersCol.doc(uid);
   const newScratchAvail = ((currentUser.todayAdsCount||0)+1) % (settings.scratchPerAds||5) === 0 ? 1 : 0;
   const updates = {
@@ -1348,7 +1225,7 @@ async function rewardAd(){
   };
   if(newScratchAvail) updates.scratchAvailable = FieldValue.increment(1);
   await ref.update(updates);
-  await txCol.add({userId:uid, amount:reward, description:'Watched 2 ads', type:'ad', createdAt:FieldValue.serverTimestamp()});
+  await txCol.add({userId:uid, amount:reward, description:'Watched ad', type:'ad', createdAt:FieldValue.serverTimestamp()});
 
   await refreshUser();
   if((currentUser.missionProgress||0)>=50 && !currentUser.missionRewarded){
@@ -1359,7 +1236,7 @@ async function rewardAd(){
   }
 
   renderAll();
-  toast('+'+reward+' points earned for watching 2 ads!', 'success');
+  toast('+'+reward+' points earned!', 'success');
   adCooldown = true;
   const btn = document.getElementById('watchAdBtn');
   let cd = 5;
@@ -1447,6 +1324,7 @@ async function checkApprovedWithdrawals(){
       document.getElementById('withdrawToastMsg').innerHTML = 'Your withdrawal of ' + fmt(w.netAmount) + ' ETB via ' + w.method.toUpperCase() + ' has been approved.<br>Please check your wallet.<br><br>If you have not received your payment, contact:<br><a href="https://t.me/Ethio_adsadminbot" target="_blank" style="color:#fff; text-decoration:underline;" onclick="event.stopPropagation()">t.me/Ethio_adsadminbot</a>';
       await wCol.doc(q.docs[0].id).update({ proofSeen: true });
       toastEl.style.display = 'block';
+      // Auto-hide after 10 seconds
       setTimeout(() => { toastEl.style.display = 'none'; }, 10000);
     }
   }catch(e){
@@ -1459,27 +1337,10 @@ function openSuggest(){ document.getElementById('suggestInput').value=''; openMo
 async function submitSuggestion(){
   const text = document.getElementById('suggestInput').value.trim();
   if(!text){ toast('Please write a suggestion', 'error'); return; }
-  
   await suggCol.add({ userId:uid, userName:currentUser.firstName, text, votes:0, status:'open', createdAt:FieldValue.serverTimestamp() });
-  
-  if(!currentUser.suggestionRewarded){
-    await usersCol.doc(uid).update({
-      points: FieldValue.increment(10),
-      totalEarnings: FieldValue.increment(10),
-      todayEarnings: FieldValue.increment(10),
-      suggestionRewarded: true
-    });
-    await txCol.add({ userId:uid, amount:10, description:'First suggestion bonus', type:'suggestion', createdAt:FieldValue.serverTimestamp() });
-    await refreshUser();
-    renderAll();
-    toast('Thanks! You earned 10 points for your first suggestion!', 'success');
-  } else {
-    toast('Suggestion submitted! (0 pts - reward already claimed)', 'success');
-  }
-  
   closeModal('modalSuggest');
+  toast('Thanks for your suggestion!', 'success');
 }
-
 function contactSupport(){
   const url = 'https://t.me/'+settings.supportUsername;
   if(tg && tg.openTelegramLink) tg.openTelegramLink(url); else window.open(url,'_blank');
@@ -1559,7 +1420,7 @@ async function sendChatMessage(){
 /* ---------------- notifications ---------------- */
 async function checkNotifications(){
   try{
-    const snap = await notifCol.orderBy('createdAt', 'desc').limit(1).get();
+    const snap = await notifCol.where('active', '==', true).orderBy('createdAt', 'desc').limit(1).get();
     
     if(snap.empty) {
       document.getElementById('notificationPopup').style.display = 'none';
@@ -1569,11 +1430,6 @@ async function checkNotifications(){
     const notif = snap.docs[0].data();
     const notifId = snap.docs[0].id;
     
-    if(notif.active === false){
-      document.getElementById('notificationPopup').style.display = 'none';
-      return;
-    }
-
     const dismissed = sessionStorage.getItem('notif_dismissed_' + notifId);
     if(dismissed === 'true'){
       document.getElementById('notificationPopup').style.display = 'none';
