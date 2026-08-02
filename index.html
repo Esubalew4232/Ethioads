@@ -258,7 +258,7 @@ nav.bottom button.active .ic{opacity:1;}
       <button class="qa-btn" onclick="openPromo()"><span class="ic">🎁</span>Promo</button>
     </div>
 
-    <div class="section-title">🏆 Leaderboard <span class="tag" onclick="switchPage('referral')">Top 10</span></div>
+    <div class="section-title">🏆 Leaderboard <span class="tag" onclick="switchPage('referral')">Top 5</span></div>
     <div class="card" id="leaderboardBox"></div>
 
     <div class="section-title">🕓 Recent Activity</div>
@@ -386,10 +386,20 @@ nav.bottom button.active .ic{opacity:1;}
     </div>
   </div>
 
-
+  <!-- CHAT -->
+  <div class="page" id="page-chat" style="display:flex; flex-direction:column; height:100%; padding-bottom:0;">
+    <div class="section-title" style="padding:0 0 10px 0;">💬 Global Chat</div>
+    <div class="card" id="chatBox" style="flex:1; height:400px; overflow-y:auto; display:flex; flex-direction:column; gap:6px; margin:0 0 10px 0;">
+      <div style="font-size:12px; color:var(--text2); text-align:center; padding:20px;">Loading messages...</div>
+    </div>
+    <div style="padding:0 0 10px 0; position:sticky; bottom:0; background:var(--bg);">
+      <div style="position:relative; display:flex; align-items:center;">
+        <input id="chatInput" placeholder="Type a message..." maxlength="500" onkeydown="if(event.key==='Enter'){event.preventDefault();sendChatMessage();}" style="flex:1; background:var(--card2); border:1px solid var(--border); border-radius:24px; padding:12px 46px 12px 16px; color:var(--text); font-size:14px;">
+        <button aria-label="Send" onclick="sendChatMessage()" style="position:absolute; right:5px; width:34px; height:34px; border-radius:50%; background:var(--primary); color:#fff; display:flex; align-items:center; justify-content:center; font-size:15px;">➤</button>
+      </div>
+    </div>
+  </div>
 </div>
-
-<button id="chatFab" onclick="openChatModal()" aria-label="Open chat" style="position:fixed; right:16px; bottom:94px; width:54px; height:54px; border-radius:50%; background:linear-gradient(135deg,var(--primary),var(--secondary)); color:#fff; font-size:22px; display:flex; align-items:center; justify-content:center; box-shadow:0 8px 24px rgba(108,92,231,.45); z-index:1400;">💬</button>
 
 <nav class="bottom" id="bottomNav">
   <button class="active" data-p="home" onclick="switchPage('home')"><span class="ic">🏠</span>Home</button>
@@ -397,27 +407,12 @@ nav.bottom button.active .ic{opacity:1;}
   <button data-p="referral" onclick="switchPage('referral')"><span class="ic">👥</span>Referral</button>
   <button data-p="withdraw" onclick="switchPage('withdraw')"><span class="ic">💸</span>Withdraw</button>
   <button data-p="profile" onclick="switchPage('profile')"><span class="ic">👤</span>Profile</button>
+  <button data-p="chat" onclick="switchPage('chat')"><span class="ic">💬</span>Chat</button>
 </nav>
 
 <div id="toastWrap"></div>
 
-<!-- CHAT MODAL -->
-<div class="modal-overlay" id="modalChat">
-  <div class="modal-sheet" style="height:82vh; max-height:82vh; display:flex; flex-direction:column; padding-bottom:14px;">
-    <span class="modal-close" onclick="closeChatModal()">✕</span>
-    <h3>💬 Global Chat</h3>
-    <div class="card" id="chatBox" style="flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:6px; margin:0 0 10px 0;">
-      <div style="font-size:12px; color:var(--text2); text-align:center; padding:20px;">Loading messages...</div>
-    </div>
-    <div style="position:relative; display:flex; align-items:center;">
-      <input id="chatInput" placeholder="Type a message..." maxlength="500" onkeydown="if(event.key==='Enter'){event.preventDefault();sendChatMessage();}" style="flex:1; background:var(--card2); border:1px solid var(--border); border-radius:24px; padding:12px 46px 12px 16px; color:var(--text); font-size:14px;">
-      <button aria-label="Send" onclick="sendChatMessage()" style="position:absolute; right:5px; width:34px; height:34px; border-radius:50%; background:var(--primary); color:#fff; display:flex; align-items:center; justify-content:center; font-size:15px;">➤</button>
-    </div>
-  </div>
-</div>
-
 <!-- MODALS -->
-
 <div class="modal-overlay" id="modalCheckin"><div class="modal-sheet"><span class="modal-close" onclick="closeModal('modalCheckin')">✕</span>
   <h3>📅 Daily Check-in</h3>
   <div id="checkinBody" style="text-align:center; padding:10px 0;">
@@ -432,7 +427,7 @@ nav.bottom button.active .ic{opacity:1;}
   <div class="wheel-wrap">
     <div class="wheel-pointer"></div>
     <div class="wheel" id="wheelEl"></div>
-    <button class="big-btn" id="spinBtn" onclick="doSpin()">Spin (Win 10–500 pts)</button>
+    <button class="big-btn" id="spinBtn" onclick="doSpin()">Spin</button>
   </div>
 </div></div>
 
@@ -452,7 +447,7 @@ nav.bottom button.active .ic{opacity:1;}
 <div class="modal-overlay" id="modalSuggest"><div class="modal-sheet"><span class="modal-close" onclick="closeModal('modalSuggest')">✕</span>
   <h3>💡 Suggest a Feature</h3>
   <div class="field"><textarea id="suggestInput" rows="4" placeholder="What would you like to see in Ethio Ads?"></textarea></div>
-  <button class="big-btn" onclick="submitSuggestion()">Submit (+10 pts)</button>
+  <button class="big-btn" onclick="submitSuggestion()">Submit (+10 pts 1st time)</button>
 </div></div>
 
 <!-- Withdrawal Detail Modal -->
@@ -555,13 +550,12 @@ async function initApp(){
     renderAll();
     listenLeaderboard();
     
-    // Check for notifications only when app opens
     await checkNotifications();
-    // Check for approved withdrawals
     await checkApprovedWithdrawals();
 
     document.getElementById('loading').style.display='none';
     document.getElementById('app').style.display='block';
+
   }catch(e){
     console.error(e);
     document.getElementById('loading').innerHTML = '<div style="color:#FF6B6B; font-size:13px; text-align:center; padding:0 24px;">Failed to load. Please reopen the app.<br><span style="opacity:.6">'+e.message+'</span></div>';
@@ -612,7 +606,15 @@ async function loadOrCreateUser(tgUser, startParam){
   if(snap.exists){
     currentUser = snap.data();
     if(currentUser.lastMissionDate !== todayStr()){
-      await ref.update({ missionProgress:0, missionRewarded:false, lastMissionDate:todayStr(), todayEarnings:0, todayAdsCount:0, scratchAvailable:0 });
+      await ref.update({ 
+        missionProgress:0, 
+        missionRewarded:false, 
+        lastMissionDate:todayStr(), 
+        todayEarnings:0, 
+        todayAdsCount:0, 
+        scratchAvailable:0,
+        todaySpinCount:0
+      });
       const s2 = await ref.get(); currentUser = s2.data();
     }
     if(currentUser.checkInDone && currentUser.lastCheckIn){
@@ -656,6 +658,8 @@ async function loadOrCreateUser(tgUser, startParam){
     usedPromoCodes: [],
     completedTasks: [],
     lastAdTime: null,
+    todaySpinCount: 0,
+    hasSuggestedBefore: false,
     createdAt: FieldValue.serverTimestamp()
   };
 
@@ -758,6 +762,7 @@ function renderAll(){
   loadReferralHistory();
   loadWithdrawHistory();
   loadAvailableTasks();
+  loadRequiredChannels();
   calcWithdraw();
 }
 
@@ -774,7 +779,7 @@ function renderAchievements(u, level){
     `<div class="achv-chip ${d.cond?'':'locked'}">${d.l}</div>`).join('');
 }
 
-/* ---------------- Available Tasks ---------------- */
+/* ---------------- Available Tasks & Channels ---------------- */
 async function loadAvailableTasks(){
   const box = document.getElementById('availableTasksBox');
   try{
@@ -814,6 +819,30 @@ async function loadAvailableTasks(){
   }
 }
 
+async function loadRequiredChannels(){
+  const box = document.getElementById('availableTasksBox');
+  try{
+    const snap = await db.collection('channels').orderBy('createdAt', 'desc').get();
+    if(snap.empty) return;
+
+    const channels = snap.docs.map(d => ({id: d.id, ...d.data()}));
+    const channelHtml = channels.map(c => `
+      <div style="display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--border);">
+        <div style="font-size:24px;">📢</div>
+        <div style="flex:1;">
+          <div style="font-weight:600; font-size:13px;">Join Channel</div>
+          <div style="font-size:11px; color:var(--text2);">${c.username}</div>
+        </div>
+        <a href="https://t.me/${c.username.replace('@','')}" target="_blank" class="btn" style="padding:6px 12px; font-size:11px; background:var(--primary); color:#fff; border-radius:8px;">Join</a>
+      </div>
+    `).join('');
+
+    box.innerHTML = channelHtml + box.innerHTML;
+  } catch(e) {
+    console.error('Load channels error', e);
+  }
+}
+
 async function completeTask(taskId){
   try{
     const taskDoc = await tasksCol.doc(taskId).get();
@@ -849,6 +878,7 @@ async function completeTask(taskId){
     await refreshUser();
     renderAll();
     loadAvailableTasks();
+    loadRequiredChannels();
     toast('+' + task.reward + ' points for completing task!', 'success');
     confettiBurst();
   }catch(e){
@@ -974,7 +1004,7 @@ async function showWithdrawalDetail(id){
 
 async function listenLeaderboard(){
   try{
-    const q = await usersCol.orderBy('points','desc').limit(10).get();
+    const q = await usersCol.orderBy('points','desc').limit(5).get();
     const box = document.getElementById('leaderboardBox');
     if(q.empty){ box.innerHTML='<div style="font-size:12px;color:var(--text2);text-align:center;">No data yet</div>'; return; }
     let i=0;
@@ -991,6 +1021,12 @@ function switchPage(p){
   document.getElementById('page-'+p).classList.add('active');
   document.querySelectorAll('nav.bottom button').forEach(b=>b.classList.toggle('active', b.dataset.p===p));
   if(tg && tg.HapticFeedback) tg.HapticFeedback.selectionChanged();
+  
+  if(p === 'chat'){
+    startChatListener();
+  } else {
+    stopChatListener();
+  }
 }
 
 /* ---------------- toast / confetti ---------------- */
@@ -1060,7 +1096,6 @@ async function doCheckin(){
   btn.disabled = true;
   
   try{
-    // Double check if already claimed
     const freshUser = await usersCol.doc(uid).get();
     if(freshUser.data().checkInDone){
       toast('Already claimed today!', 'error');
@@ -1093,21 +1128,69 @@ async function doCheckin(){
   btn.disabled = false;
 }
 
-/* ---------------- spin ---------------- */
-function openSpin(){ document.getElementById('wheelEl').style.transform='rotate(0deg)'; openModal('modalSpin'); }
+/* ---------------- spin (1 Time/Day + Custom Odds) ---------------- */
+function openSpin(){ 
+  const u = currentUser;
+  const spinsUsed = u.todaySpinCount || 0;
+  const btn = document.getElementById('spinBtn');
+  
+  if(spinsUsed >= 1) {
+    btn.disabled = true;
+    btn.textContent = 'Daily Limit Reached (1/1)';
+  } else {
+    btn.disabled = false;
+    btn.textContent = `Spin (${spinsUsed}/1 Used Today)`;
+  }
+  document.getElementById('wheelEl').style.transform='rotate(0deg)'; 
+  openModal('modalSpin'); 
+}
+
 async function doSpin(){
-  if(spinning) return; spinning=true;
-  const btn = document.getElementById('spinBtn'); btn.disabled=true;
-  const win = Math.floor(Math.random()*491)+10;
-  const spins = 5 + Math.random()*3;
-  const finalDeg = spins*360 + Math.random()*360;
-  document.getElementById('wheelEl').style.transform = 'rotate('+finalDeg+'deg)';
+  if(spinning) return; 
+  const u = currentUser;
+  if((u.todaySpinCount || 0) >= 1){
+    toast('You can only spin 1 time per day!', 'error');
+    return;
+  }
+
+  spinning = true;
+  const btn = document.getElementById('spinBtn'); 
+  btn.disabled = true;
+
+  const rand = Math.random() * 100;
+  let win = 1;
+
+  if (rand < 90.0) {
+    win = Math.floor(Math.random() * 50) + 1;
+  } else if (rand < 99.0) {
+    win = Math.floor(Math.random() * 21) + 50;
+  } else if (rand < 99.9999) {
+    win = Math.floor(Math.random() * 11) + 70;
+  } else {
+    win = Math.floor(Math.random() * 101) + 200;
+  }
+
+  const spins = 5 + Math.random() * 3;
+  const finalDeg = spins * 360 + Math.random() * 360;
+  document.getElementById('wheelEl').style.transform = 'rotate(' + finalDeg + 'deg)';
+
   setTimeout(async ()=>{
-    await usersCol.doc(uid).update({ points:FieldValue.increment(win), totalEarnings:FieldValue.increment(win), todayEarnings:FieldValue.increment(win) });
+    await usersCol.doc(uid).update({ 
+      points: FieldValue.increment(win), 
+      totalEarnings: FieldValue.increment(win), 
+      todayEarnings: FieldValue.increment(win),
+      todaySpinCount: FieldValue.increment(1)
+    });
     await txCol.add({userId:uid, amount:win, description:'Lucky Spin win', type:'spin', createdAt:FieldValue.serverTimestamp()});
-    await refreshUser(); renderAll();
-    spinning=false; btn.disabled=false;
-    confettiBurst(); toast('🎉 You won '+win+' points!', 'success');
+    await refreshUser(); 
+    renderAll();
+    spinning = false; 
+    
+    btn.disabled = ((currentUser.todaySpinCount || 0) >= 1);
+    if(btn.disabled) btn.textContent = 'Daily Limit Reached (1/1)';
+    
+    confettiBurst(); 
+    toast('🎉 You won ' + win + ' points!', 'success');
   }, 3600);
 }
 
@@ -1237,12 +1320,12 @@ async function rewardAd(){
 
 /* ---------------- referral ---------------- */
 function copyRefCode(){
-  const botUsername = (settings.botUsername || 'Ethio_adbot').replace(/^@/, '');
+  const botUsername = settings.botUsername || 'Ethio_adbot';
   const link = 'https://t.me/'+botUsername+'?start='+uid;
   navigator.clipboard.writeText(link).then(()=>toast('Referral link copied!', 'success')).catch(()=>toast('Copy failed', 'error'));
 }
 function shareRefCode(){
-  const botUsername = (settings.botUsername || 'Ethio_adbot').replace(/^@/, '');
+  const botUsername = settings.botUsername || 'Ethio_adbot';
   const link = 'https://t.me/'+botUsername+'?start='+uid;
   const text = 'Join Ethio Ads and start earning!';
   if(tg && tg.openTelegramLink){
@@ -1311,7 +1394,6 @@ async function checkApprovedWithdrawals(){
       document.getElementById('withdrawToastMsg').innerHTML = 'Your withdrawal of ' + fmt(w.netAmount) + ' ETB via ' + w.method.toUpperCase() + ' has been approved.<br>Please check your wallet.<br><br>If you have not received your payment, contact:<br><a href="https://t.me/Ethio_adsadminbot" target="_blank" style="color:#fff; text-decoration:underline;" onclick="event.stopPropagation()">t.me/Ethio_adsadminbot</a>';
       await wCol.doc(q.docs[0].id).update({ proofSeen: true });
       toastEl.style.display = 'block';
-      // Auto-hide after 10 seconds
       setTimeout(() => { toastEl.style.display = 'none'; }, 10000);
     }
   }catch(e){
@@ -1319,18 +1401,37 @@ async function checkApprovedWithdrawals(){
   }
 }
 
-/* ---------------- suggestions / support ---------------- */
+/* ---------------- suggestions (10 points ONLY first time) ---------------- */
 function openSuggest(){ document.getElementById('suggestInput').value=''; openModal('modalSuggest'); }
+
 async function submitSuggestion(){
   const text = document.getElementById('suggestInput').value.trim();
   if(!text){ toast('Please write a suggestion', 'error'); return; }
+  
   await suggCol.add({ userId:uid, userName:currentUser.firstName, text, votes:0, status:'open', createdAt:FieldValue.serverTimestamp() });
-  await usersCol.doc(uid).update({ points:FieldValue.increment(10), totalEarnings:FieldValue.increment(10), todayEarnings:FieldValue.increment(10) });
-  await txCol.add({userId:uid, amount:10, description:'Feature suggestion reward', type:'suggestion', createdAt:FieldValue.serverTimestamp()});
-  await refreshUser(); renderAll();
+  
+  const hasSuggested = currentUser.hasSuggestedBefore === true;
+  let reward = 0;
+
+  if (!hasSuggested) {
+    reward = 10;
+    await usersCol.doc(uid).update({ 
+      points: FieldValue.increment(10), 
+      totalEarnings: FieldValue.increment(10), 
+      todayEarnings: FieldValue.increment(10),
+      hasSuggestedBefore: true
+    });
+    await txCol.add({userId:uid, amount:10, description:'Feature suggestion reward (1st time)', type:'suggestion', createdAt:FieldValue.serverTimestamp()});
+    toast('Thanks! +10 points earned for your first suggestion!', 'success');
+  } else {
+    toast('Thank you for your suggestion!', 'success');
+  }
+
+  await refreshUser(); 
+  renderAll();
   closeModal('modalSuggest');
-  toast('Thanks! +10 points', 'success');
 }
+
 function contactSupport(){
   const url = 'https://t.me/'+settings.supportUsername;
   if(tg && tg.openTelegramLink) tg.openTelegramLink(url); else window.open(url,'_blank');
@@ -1339,14 +1440,6 @@ function contactSupport(){
 /* ---------------- chat ---------------- */
 let chatUnsub = null;
 
-function openChatModal(){
-  openModal('modalChat');
-  startChatListener();
-}
-function closeChatModal(){
-  closeModal('modalChat');
-  stopChatListener();
-}
 function startChatListener(){
   const box = document.getElementById('chatBox');
   box.innerHTML = '<div style="font-size:12px; color:var(--text2); text-align:center; padding:20px;">Loading messages...</div>';
@@ -1407,18 +1500,23 @@ async function sendChatMessage(){
   }
 }
 
-/* ---------------- notifications ---------------- */
+/* ---------------- notifications (Broadcast) ---------------- */
 async function checkNotifications(){
   try{
-    const snap = await notifCol.where('active', '==', true).orderBy('createdAt', 'desc').limit(1).get();
-    
+    const snap = await notifCol.orderBy('createdAt', 'desc').limit(5).get();
     if(snap.empty) {
       document.getElementById('notificationPopup').style.display = 'none';
       return;
     }
     
-    const notif = snap.docs[0].data();
-    const notifId = snap.docs[0].id;
+    const activeDoc = snap.docs.find(doc => doc.data().active === true);
+    if(!activeDoc){
+      document.getElementById('notificationPopup').style.display = 'none';
+      return;
+    }
+
+    const notif = activeDoc.data();
+    const notifId = activeDoc.id;
     
     const dismissed = sessionStorage.getItem('notif_dismissed_' + notifId);
     if(dismissed === 'true'){
