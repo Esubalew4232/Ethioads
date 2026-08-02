@@ -258,7 +258,7 @@ nav.bottom button.active .ic{opacity:1;}
       <button class="qa-btn" onclick="openPromo()"><span class="ic">🎁</span>Promo</button>
     </div>
 
-    <div class="section-title">🏆 Leaderboard <span class="tag" onclick="switchPage('referral')">Top 5</span></div>
+    <div class="section-title">🏆 Leaderboard <span class="tag" onclick="switchPage('referral')">Top 10</span></div>
     <div class="card" id="leaderboardBox"></div>
 
     <div class="section-title">🕓 Recent Activity</div>
@@ -386,20 +386,10 @@ nav.bottom button.active .ic{opacity:1;}
     </div>
   </div>
 
-  <!-- CHAT -->
-  <div class="page" id="page-chat" style="display:flex; flex-direction:column; height:100%; padding-bottom:0;">
-    <div class="section-title" style="padding:0 0 10px 0;">💬 Global Chat</div>
-    <div class="card" id="chatBox" style="flex:1; height:400px; overflow-y:auto; display:flex; flex-direction:column; gap:6px; margin:0 0 10px 0;">
-      <div style="font-size:12px; color:var(--text2); text-align:center; padding:20px;">Loading messages...</div>
-    </div>
-    <div style="padding:0 0 10px 0; position:sticky; bottom:0; background:var(--bg);">
-      <div style="position:relative; display:flex; align-items:center;">
-        <input id="chatInput" placeholder="Type a message..." maxlength="500" onkeydown="if(event.key==='Enter'){event.preventDefault();sendChatMessage();}" style="flex:1; background:var(--card2); border:1px solid var(--border); border-radius:24px; padding:12px 46px 12px 16px; color:var(--text); font-size:14px;">
-        <button aria-label="Send" onclick="sendChatMessage()" style="position:absolute; right:5px; width:34px; height:34px; border-radius:50%; background:var(--primary); color:#fff; display:flex; align-items:center; justify-content:center; font-size:15px;">➤</button>
-      </div>
-    </div>
-  </div>
+
 </div>
+
+<button id="chatFab" onclick="openChatModal()" aria-label="Open chat" style="position:fixed; right:16px; bottom:94px; width:54px; height:54px; border-radius:50%; background:linear-gradient(135deg,var(--primary),var(--secondary)); color:#fff; font-size:22px; display:flex; align-items:center; justify-content:center; box-shadow:0 8px 24px rgba(108,92,231,.45); z-index:1400;">💬</button>
 
 <nav class="bottom" id="bottomNav">
   <button class="active" data-p="home" onclick="switchPage('home')"><span class="ic">🏠</span>Home</button>
@@ -407,12 +397,27 @@ nav.bottom button.active .ic{opacity:1;}
   <button data-p="referral" onclick="switchPage('referral')"><span class="ic">👥</span>Referral</button>
   <button data-p="withdraw" onclick="switchPage('withdraw')"><span class="ic">💸</span>Withdraw</button>
   <button data-p="profile" onclick="switchPage('profile')"><span class="ic">👤</span>Profile</button>
-  <button data-p="chat" onclick="switchPage('chat')"><span class="ic">💬</span>Chat</button>
 </nav>
 
 <div id="toastWrap"></div>
 
+<!-- CHAT MODAL -->
+<div class="modal-overlay" id="modalChat">
+  <div class="modal-sheet" style="height:82vh; max-height:82vh; display:flex; flex-direction:column; padding-bottom:14px;">
+    <span class="modal-close" onclick="closeChatModal()">✕</span>
+    <h3>💬 Global Chat</h3>
+    <div class="card" id="chatBox" style="flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:6px; margin:0 0 10px 0;">
+      <div style="font-size:12px; color:var(--text2); text-align:center; padding:20px;">Loading messages...</div>
+    </div>
+    <div style="position:relative; display:flex; align-items:center;">
+      <input id="chatInput" placeholder="Type a message..." maxlength="500" onkeydown="if(event.key==='Enter'){event.preventDefault();sendChatMessage();}" style="flex:1; background:var(--card2); border:1px solid var(--border); border-radius:24px; padding:12px 46px 12px 16px; color:var(--text); font-size:14px;">
+      <button aria-label="Send" onclick="sendChatMessage()" style="position:absolute; right:5px; width:34px; height:34px; border-radius:50%; background:var(--primary); color:#fff; display:flex; align-items:center; justify-content:center; font-size:15px;">➤</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODALS -->
+
 <div class="modal-overlay" id="modalCheckin"><div class="modal-sheet"><span class="modal-close" onclick="closeModal('modalCheckin')">✕</span>
   <h3>📅 Daily Check-in</h3>
   <div id="checkinBody" style="text-align:center; padding:10px 0;">
@@ -530,10 +535,6 @@ let spinning = false;
 let scratchRevealed = false;
 let scratchWin = 0;
 let checkinProcessing = false;
-let autoAdInterval = null;
-let autoAdBusy = false;
-const AUTO_AD_INTERVAL_MS = 40000;
-const AUTO_AD_REWARD = 20; // fixed — never comes from admin settings
 
 /* ---------------- init ---------------- */
 async function initApp(){
@@ -561,8 +562,6 @@ async function initApp(){
 
     document.getElementById('loading').style.display='none';
     document.getElementById('app').style.display='block';
-
-    startAutoAds();
   }catch(e){
     console.error(e);
     document.getElementById('loading').innerHTML = '<div style="color:#FF6B6B; font-size:13px; text-align:center; padding:0 24px;">Failed to load. Please reopen the app.<br><span style="opacity:.6">'+e.message+'</span></div>';
@@ -864,7 +863,7 @@ async function loadActivity(){
   try{
     const q = await txCol.where('userId','==',uid).orderBy('createdAt','desc').limit(10).get();
     if(q.empty){ box.innerHTML='<div style="font-size:12px;color:var(--text2);text-align:center;padding:10px;">No activity yet</div>'; return; }
-    const icons = {welcome:'🎉',checkin:'📅',ad:'▶️',auto_ad:'📺',spin:'🎡',scratch:'🎫',referral:'👥',promo:'🎁',suggestion:'💡',withdrawal:'💸',mission:'🎯',task:'📋'};
+    const icons = {welcome:'🎉',checkin:'📅',ad:'▶️',spin:'🎡',scratch:'🎫',referral:'👥',promo:'🎁',suggestion:'💡',withdrawal:'💸',mission:'🎯',task:'📋'};
     box.innerHTML = q.docs.map(d=>{
       const t=d.data();
       const dt = t.createdAt && t.createdAt.toDate ? t.createdAt.toDate() : new Date();
@@ -975,7 +974,7 @@ async function showWithdrawalDetail(id){
 
 async function listenLeaderboard(){
   try{
-    const q = await usersCol.orderBy('points','desc').limit(5).get();
+    const q = await usersCol.orderBy('points','desc').limit(10).get();
     const box = document.getElementById('leaderboardBox');
     if(q.empty){ box.innerHTML='<div style="font-size:12px;color:var(--text2);text-align:center;">No data yet</div>'; return; }
     let i=0;
@@ -992,12 +991,6 @@ function switchPage(p){
   document.getElementById('page-'+p).classList.add('active');
   document.querySelectorAll('nav.bottom button').forEach(b=>b.classList.toggle('active', b.dataset.p===p));
   if(tg && tg.HapticFeedback) tg.HapticFeedback.selectionChanged();
-  
-  if(p === 'chat'){
-    startChatListener();
-  } else {
-    stopChatListener();
-  }
 }
 
 /* ---------------- toast / confetti ---------------- */
@@ -1168,38 +1161,6 @@ async function redeemPromo(){
   }catch(e){ toast('Could not redeem code', 'error'); }
 }
 
-/* ---------------- automatic ads ---------------- */
-function startAutoAds(){
-  if(autoAdInterval) clearInterval(autoAdInterval);
-  autoAdInterval = setInterval(autoAdTick, AUTO_AD_INTERVAL_MS);
-}
-async function autoAdTick(){
-  if(autoAdBusy) return;
-  autoAdBusy = true;
-  try{
-    // Best-effort ad impression; reward is fixed and never depends on this succeeding
-    if(typeof show_11480597 === 'function'){
-      try{ show_11480597({ type:'preload' }); }catch(e){ /* ignore, ad SDK not ready */ }
-    }
-    await usersCol.doc(uid).update({
-      points: FieldValue.increment(AUTO_AD_REWARD),
-      totalEarnings: FieldValue.increment(AUTO_AD_REWARD),
-      todayEarnings: FieldValue.increment(AUTO_AD_REWARD)
-    });
-    await txCol.add({ userId:uid, amount:AUTO_AD_REWARD, description:'Automatic ad reward', type:'auto_ad', createdAt:FieldValue.serverTimestamp() });
-    await refreshUser();
-    document.getElementById('hdrPoints').textContent = currentUser.points||0;
-    document.getElementById('hdrEtb').textContent = fmt((currentUser.points||0) * settings.conversionRate);
-    document.getElementById('balPoints').textContent = currentUser.points||0;
-    document.getElementById('balEtb').textContent = fmt((currentUser.points||0) * settings.conversionRate);
-    document.getElementById('balToday').textContent = fmt(currentUser.todayEarnings);
-    toast('+'+AUTO_AD_REWARD+' points (auto ad)', 'default');
-  }catch(e){
-    console.error('Auto ad reward error', e);
-  }
-  autoAdBusy = false;
-}
-
 /* ---------------- watch ad ---------------- */
 async function watchAd(){
   if(adCooldown){ toast('Please wait a moment before the next ad', 'error'); return; }
@@ -1276,12 +1237,12 @@ async function rewardAd(){
 
 /* ---------------- referral ---------------- */
 function copyRefCode(){
-  const botUsername = settings.botUsername || 'Ethio_adbot';
+  const botUsername = (settings.botUsername || 'Ethio_adbot').replace(/^@/, '');
   const link = 'https://t.me/'+botUsername+'?start='+uid;
   navigator.clipboard.writeText(link).then(()=>toast('Referral link copied!', 'success')).catch(()=>toast('Copy failed', 'error'));
 }
 function shareRefCode(){
-  const botUsername = settings.botUsername || 'Ethio_adbot';
+  const botUsername = (settings.botUsername || 'Ethio_adbot').replace(/^@/, '');
   const link = 'https://t.me/'+botUsername+'?start='+uid;
   const text = 'Join Ethio Ads and start earning!';
   if(tg && tg.openTelegramLink){
@@ -1378,6 +1339,14 @@ function contactSupport(){
 /* ---------------- chat ---------------- */
 let chatUnsub = null;
 
+function openChatModal(){
+  openModal('modalChat');
+  startChatListener();
+}
+function closeChatModal(){
+  closeModal('modalChat');
+  stopChatListener();
+}
 function startChatListener(){
   const box = document.getElementById('chatBox');
   box.innerHTML = '<div style="font-size:12px; color:var(--text2); text-align:center; padding:20px;">Loading messages...</div>';
