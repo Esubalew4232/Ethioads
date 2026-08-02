@@ -258,7 +258,7 @@ nav.bottom button.active .ic{opacity:1;}
       <button class="qa-btn" onclick="openPromo()"><span class="ic">🎁</span>Promo</button>
     </div>
 
-    <div class="section-title">🏆 Leaderboard <span class="tag" onclick="switchPage('referral')">Top 5</span></div>
+    <div class="section-title">🏆 Leaderboard <span class="tag" onclick="switchPage('referral')">Top 10</span></div>
     <div class="card" id="leaderboardBox"></div>
 
     <div class="section-title">🕓 Recent Activity</div>
@@ -286,7 +286,7 @@ nav.bottom button.active .ic{opacity:1;}
       <div class="progress-outer"><div class="progress-inner" id="missionBar" style="width:0%"></div></div>
     </div>
 
-    <div class="section-title">📋 Available Tasks</div>
+    <div class="section-title">📋 Available Tasks & Channels</div>
     <div class="card" id="availableTasksBox">
       <div style="font-size:12px; color:var(--text2); text-align:center; padding:10px;">Loading tasks...</div>
     </div>
@@ -382,24 +382,14 @@ nav.bottom button.active .ic{opacity:1;}
     <div class="card">
       <div class="row-between"><span>Dark Mode</span><div class="toggle on" id="darkToggle" onclick="toggleDark()"></div></div>
       <div class="row-between" onclick="contactSupport()" style="cursor:pointer;"><span>💬 Contact Support</span><span>›</span></div>
-      <div class="row-between" onclick="openSuggest()" style="cursor:pointer;"><span>💡 Suggest a Feature (+10 pts)</span><span>›</span></div>
+      <div class="row-between" onclick="openSuggest()" style="cursor:pointer;"><span>💡 Suggest a Feature</span><span>›</span></div>
     </div>
   </div>
 
-  <!-- CHAT -->
-  <div class="page" id="page-chat" style="display:flex; flex-direction:column; height:100%; padding-bottom:0;">
-    <div class="section-title" style="padding:0 0 10px 0;">💬 Global Chat</div>
-    <div class="card" id="chatBox" style="flex:1; height:400px; overflow-y:auto; display:flex; flex-direction:column; gap:6px; margin:0 0 10px 0;">
-      <div style="font-size:12px; color:var(--text2); text-align:center; padding:20px;">Loading messages...</div>
-    </div>
-    <div style="padding:0 0 10px 0; position:sticky; bottom:0; background:var(--bg);">
-      <div style="position:relative; display:flex; align-items:center;">
-        <input id="chatInput" placeholder="Type a message..." maxlength="500" onkeydown="if(event.key==='Enter'){event.preventDefault();sendChatMessage();}" style="flex:1; background:var(--card2); border:1px solid var(--border); border-radius:24px; padding:12px 46px 12px 16px; color:var(--text); font-size:14px;">
-        <button aria-label="Send" onclick="sendChatMessage()" style="position:absolute; right:5px; width:34px; height:34px; border-radius:50%; background:var(--primary); color:#fff; display:flex; align-items:center; justify-content:center; font-size:15px;">➤</button>
-      </div>
-    </div>
-  </div>
+
 </div>
+
+<button id="chatFab" onclick="openChatModal()" aria-label="Open chat" style="position:fixed; right:16px; bottom:94px; width:54px; height:54px; border-radius:50%; background:linear-gradient(135deg,var(--primary),var(--secondary)); color:#fff; font-size:22px; display:flex; align-items:center; justify-content:center; box-shadow:0 8px 24px rgba(108,92,231,.45); z-index:1400;">💬</button>
 
 <nav class="bottom" id="bottomNav">
   <button class="active" data-p="home" onclick="switchPage('home')"><span class="ic">🏠</span>Home</button>
@@ -407,12 +397,27 @@ nav.bottom button.active .ic{opacity:1;}
   <button data-p="referral" onclick="switchPage('referral')"><span class="ic">👥</span>Referral</button>
   <button data-p="withdraw" onclick="switchPage('withdraw')"><span class="ic">💸</span>Withdraw</button>
   <button data-p="profile" onclick="switchPage('profile')"><span class="ic">👤</span>Profile</button>
-  <button data-p="chat" onclick="switchPage('chat')"><span class="ic">💬</span>Chat</button>
 </nav>
 
 <div id="toastWrap"></div>
 
+<!-- CHAT MODAL -->
+<div class="modal-overlay" id="modalChat">
+  <div class="modal-sheet" style="height:82vh; max-height:82vh; display:flex; flex-direction:column; padding-bottom:14px;">
+    <span class="modal-close" onclick="closeChatModal()">✕</span>
+    <h3>💬 Global Chat</h3>
+    <div class="card" id="chatBox" style="flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:6px; margin:0 0 10px 0;">
+      <div style="font-size:12px; color:var(--text2); text-align:center; padding:20px;">Loading messages...</div>
+    </div>
+    <div style="position:relative; display:flex; align-items:center;">
+      <input id="chatInput" placeholder="Type a message..." maxlength="500" onkeydown="if(event.key==='Enter'){event.preventDefault();sendChatMessage();}" style="flex:1; background:var(--card2); border:1px solid var(--border); border-radius:24px; padding:12px 46px 12px 16px; color:var(--text); font-size:14px;">
+      <button aria-label="Send" onclick="sendChatMessage()" style="position:absolute; right:5px; width:34px; height:34px; border-radius:50%; background:var(--primary); color:#fff; display:flex; align-items:center; justify-content:center; font-size:15px;">➤</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODALS -->
+
 <div class="modal-overlay" id="modalCheckin"><div class="modal-sheet"><span class="modal-close" onclick="closeModal('modalCheckin')">✕</span>
   <h3>📅 Daily Check-in</h3>
   <div id="checkinBody" style="text-align:center; padding:10px 0;">
@@ -425,9 +430,10 @@ nav.bottom button.active .ic{opacity:1;}
 <div class="modal-overlay" id="modalSpin"><div class="modal-sheet"><span class="modal-close" onclick="closeModal('modalSpin')">✕</span>
   <h3>🎡 Lucky Spin</h3>
   <div class="wheel-wrap">
+    <div id="spinAvailTxt" style="font-size:12.5px; color:var(--text2); text-align:center;">Spins today: 0/2</div>
     <div class="wheel-pointer"></div>
     <div class="wheel" id="wheelEl"></div>
-    <button class="big-btn" id="spinBtn" onclick="doSpin()">Spin</button>
+    <button class="big-btn" id="spinBtn" onclick="doSpin()">Spin Wheel</button>
   </div>
 </div></div>
 
@@ -446,8 +452,9 @@ nav.bottom button.active .ic{opacity:1;}
 
 <div class="modal-overlay" id="modalSuggest"><div class="modal-sheet"><span class="modal-close" onclick="closeModal('modalSuggest')">✕</span>
   <h3>💡 Suggest a Feature</h3>
+  <div style="font-size:12px; color:var(--text2); margin-bottom:10px;">Earn 10 points for your first suggestion!</div>
   <div class="field"><textarea id="suggestInput" rows="4" placeholder="What would you like to see in Ethio Ads?"></textarea></div>
-  <button class="big-btn" onclick="submitSuggestion()">Submit (+10 pts 1st time)</button>
+  <button class="big-btn" onclick="submitSuggestion()">Submit Suggestion</button>
 </div></div>
 
 <!-- Withdrawal Detail Modal -->
@@ -480,7 +487,7 @@ nav.bottom button.active .ic{opacity:1;}
       <circle id="adRingProgress" cx="55" cy="55" r="48" stroke="#00D2D3" stroke-width="6" fill="none" stroke-dasharray="301.6" stroke-dashoffset="301.6" stroke-linecap="round"/></svg>
     <div class="n" id="adTimerNum">30</div>
   </div>
-  <div style="font-size:13px; color:#ccc;">Watching ad… stay on this screen</div>
+  <div style="font-size:13px; color:#ccc;" id="adOverlayLabel">Watching ad… stay on this screen</div>
 </div>
 
 <script>
@@ -514,12 +521,12 @@ let tg = window.Telegram ? window.Telegram.WebApp : null;
 let currentUser = null;
 let uid = null;
 let settings = {
-  welcomeBonus:200, dailyBonus:100, referralReward:500, referralLevel2Reward:100,
+  welcomeBonus:200, dailyBonus:100, referralReward:500,
   adReward:100, adTimer:30, minWithdrawal:6000, conversionRate:0.005, transactionFee:0.10,
   maintenanceMode:false, withdrawEnabled:true, referralEnabled:true, tasksEnabled:true,
   refComp1:100, refComp2:80, refComp3:50, refComp4to10:30,
   supportUsername:'Ethio_adbot', usdtRate:170, announcement:'', announcementActive:false,
-  scratchPerAds:5, botUsername:'Ethio_adbot'
+  scratchPerAds:5, botUsername:'Ethio_adbot', maxSpinsPerDay:2
 };
 let wMethod = 'telebirr';
 let adCooldown = false;
@@ -550,12 +557,13 @@ async function initApp(){
     renderAll();
     listenLeaderboard();
     
+    // Check for notifications when app opens
     await checkNotifications();
+    // Check for approved withdrawals
     await checkApprovedWithdrawals();
 
     document.getElementById('loading').style.display='none';
     document.getElementById('app').style.display='block';
-
   }catch(e){
     console.error(e);
     document.getElementById('loading').innerHTML = '<div style="color:#FF6B6B; font-size:13px; text-align:center; padding:0 24px;">Failed to load. Please reopen the app.<br><span style="opacity:.6">'+e.message+'</span></div>';
@@ -613,7 +621,7 @@ async function loadOrCreateUser(tgUser, startParam){
         todayEarnings:0, 
         todayAdsCount:0, 
         scratchAvailable:0,
-        todaySpinCount:0
+        todaySpinsCount:0 
       });
       const s2 = await ref.get(); currentUser = s2.data();
     }
@@ -655,11 +663,11 @@ async function loadOrCreateUser(tgUser, startParam){
     lastMissionDate: todayStr(),
     scratchUsed: 0,
     scratchAvailable: 0,
+    todaySpinsCount: 0,
+    suggestionRewarded: false,
     usedPromoCodes: [],
     completedTasks: [],
     lastAdTime: null,
-    todaySpinCount: 0,
-    hasSuggestedBefore: false,
     createdAt: FieldValue.serverTimestamp()
   };
 
@@ -680,16 +688,6 @@ async function loadOrCreateUser(tgUser, startParam){
       });
       await txCol.add({ userId:refId, amount:settings.referralReward, description:'Referral bonus: '+newUser.firstName, type:'referral', createdAt:FieldValue.serverTimestamp() });
       await refCol.add({ referrerId:refId, referredId:uid, referredName:newUser.firstName, earnedPoints:settings.referralReward, createdAt:FieldValue.serverTimestamp() });
-
-      const refData = refDoc.data();
-      if(refData.referredBy){
-        await usersCol.doc(refData.referredBy).update({
-          points: FieldValue.increment(settings.referralLevel2Reward),
-          totalEarnings: FieldValue.increment(settings.referralLevel2Reward),
-          referralEarnings: FieldValue.increment(settings.referralLevel2Reward)
-        });
-        await txCol.add({ userId:refData.referredBy, amount:settings.referralLevel2Reward, description:'Level 2 referral bonus', type:'referral', createdAt:FieldValue.serverTimestamp() });
-      }
     }
   }
 
@@ -762,7 +760,6 @@ function renderAll(){
   loadReferralHistory();
   loadWithdrawHistory();
   loadAvailableTasks();
-  loadRequiredChannels();
   calcWithdraw();
 }
 
@@ -783,33 +780,35 @@ function renderAchievements(u, level){
 async function loadAvailableTasks(){
   const box = document.getElementById('availableTasksBox');
   try{
-    const snap = await tasksCol.where('active', '==', true).orderBy('createdAt', 'desc').get();
+    // Removing the strict .where('active', '==', true) filter so tasks appear without issues
+    const snap = await tasksCol.orderBy('createdAt', 'desc').get();
     const tasks = snap.docs.map(d => ({id: d.id, ...d.data()}));
     
     if(tasks.length === 0){
-      box.innerHTML = '<div style="font-size:12px; color:var(--text2); text-align:center; padding:10px;">No tasks available right now</div>';
+      box.innerHTML = '<div style="font-size:12px; color:var(--text2); text-align:center; padding:10px;">No tasks or channels available right now</div>';
       return;
     }
     
     const typeEmojis = {
       visit: '🌐', join: '📢', whatsapp: '💬', 
-      tiktok: '🎵', instagram: '📸', youtube: '▶️', review: '📝'
+      tiktok: '🎵', instagram: '📸', youtube: '▶️', review: '📝', channel: '📢'
     };
     
     const completedTasks = currentUser.completedTasks || [];
     
     box.innerHTML = tasks.map(t => {
       const isCompleted = completedTasks.includes(t.id);
+      const rewardVal = t.reward || 50;
       return `<div style="display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--border); ${isCompleted ? 'opacity:0.5;' : ''}">
         <div style="font-size:24px;">${typeEmojis[t.type] || '🎯'}</div>
         <div style="flex:1;">
-          <div style="font-weight:600; font-size:13px;">${t.title}</div>
-          <div style="font-size:11px; color:var(--text2);">${t.type} · ${t.link || ''}</div>
+          <div style="font-weight:600; font-size:13px;">${t.title || 'Task'}</div>
+          <div style="font-size:11px; color:var(--text2);">${t.type || 'Task'} · ${t.link || ''}</div>
         </div>
         <div style="display:flex; flex-direction:column; align-items:flex-end;">
-          <div style="color:var(--success); font-weight:700; font-size:13px;">+${t.reward} pts</div>
+          <div style="color:var(--success); font-weight:700; font-size:13px;">+${rewardVal} pts</div>
           ${isCompleted ? '<span style="font-size:10px; color:var(--text2);">✅ Completed</span>' : 
-            `<button class="btn" style="padding:4px 12px; font-size:11px; background:var(--primary); color:#fff; border-radius:8px;" onclick="completeTask('${t.id}')">Complete</button>`}
+            `<button class="btn" style="padding:4px 12px; font-size:11px; background:var(--primary); color:#fff; border-radius:8px;" onclick="completeTask('${t.id}', ${rewardVal})">Complete</button>`}
         </div>
       </div>`;
     }).join('');
@@ -819,40 +818,8 @@ async function loadAvailableTasks(){
   }
 }
 
-async function loadRequiredChannels(){
-  const box = document.getElementById('availableTasksBox');
+async function completeTask(taskId, rewardAmount){
   try{
-    const snap = await db.collection('channels').orderBy('createdAt', 'desc').get();
-    if(snap.empty) return;
-
-    const channels = snap.docs.map(d => ({id: d.id, ...d.data()}));
-    const channelHtml = channels.map(c => `
-      <div style="display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--border);">
-        <div style="font-size:24px;">📢</div>
-        <div style="flex:1;">
-          <div style="font-weight:600; font-size:13px;">Join Channel</div>
-          <div style="font-size:11px; color:var(--text2);">${c.username}</div>
-        </div>
-        <a href="https://t.me/${c.username.replace('@','')}" target="_blank" class="btn" style="padding:6px 12px; font-size:11px; background:var(--primary); color:#fff; border-radius:8px;">Join</a>
-      </div>
-    `).join('');
-
-    box.innerHTML = channelHtml + box.innerHTML;
-  } catch(e) {
-    console.error('Load channels error', e);
-  }
-}
-
-async function completeTask(taskId){
-  try{
-    const taskDoc = await tasksCol.doc(taskId).get();
-    const task = taskDoc.data();
-    
-    if(!task || !task.active){
-      toast('This task is no longer available', 'error');
-      return;
-    }
-    
     const completed = currentUser.completedTasks || [];
     if(completed.includes(taskId)){
       toast('You already completed this task', 'error');
@@ -860,17 +827,17 @@ async function completeTask(taskId){
     }
     
     await usersCol.doc(uid).update({
-      points: FieldValue.increment(task.reward),
-      totalEarnings: FieldValue.increment(task.reward),
-      todayEarnings: FieldValue.increment(task.reward),
+      points: FieldValue.increment(rewardAmount),
+      totalEarnings: FieldValue.increment(rewardAmount),
+      todayEarnings: FieldValue.increment(rewardAmount),
       totalTasksCompleted: FieldValue.increment(1),
       completedTasks: FieldValue.arrayUnion(taskId)
     });
     
     await txCol.add({
       userId: uid,
-      amount: task.reward,
-      description: 'Task completed: ' + task.title,
+      amount: rewardAmount,
+      description: 'Completed Task/Channel',
       type: 'task',
       createdAt: FieldValue.serverTimestamp()
     });
@@ -878,8 +845,7 @@ async function completeTask(taskId){
     await refreshUser();
     renderAll();
     loadAvailableTasks();
-    loadRequiredChannels();
-    toast('+' + task.reward + ' points for completing task!', 'success');
+    toast('+' + rewardAmount + ' points for completing task!', 'success');
     confettiBurst();
   }catch(e){
     console.error('Complete task error', e);
@@ -1004,7 +970,7 @@ async function showWithdrawalDetail(id){
 
 async function listenLeaderboard(){
   try{
-    const q = await usersCol.orderBy('points','desc').limit(5).get();
+    const q = await usersCol.orderBy('points','desc').limit(10).get();
     const box = document.getElementById('leaderboardBox');
     if(q.empty){ box.innerHTML='<div style="font-size:12px;color:var(--text2);text-align:center;">No data yet</div>'; return; }
     let i=0;
@@ -1021,12 +987,6 @@ function switchPage(p){
   document.getElementById('page-'+p).classList.add('active');
   document.querySelectorAll('nav.bottom button').forEach(b=>b.classList.toggle('active', b.dataset.p===p));
   if(tg && tg.HapticFeedback) tg.HapticFeedback.selectionChanged();
-  
-  if(p === 'chat'){
-    startChatListener();
-  } else {
-    stopChatListener();
-  }
 }
 
 /* ---------------- toast / confetti ---------------- */
@@ -1128,69 +1088,85 @@ async function doCheckin(){
   btn.disabled = false;
 }
 
-/* ---------------- spin (1 Time/Day + Custom Odds) ---------------- */
+/* ---------------- spin ---------------- */
 function openSpin(){ 
-  const u = currentUser;
-  const spinsUsed = u.todaySpinCount || 0;
-  const btn = document.getElementById('spinBtn');
+  const spinsToday = currentUser.todaySpinsCount || 0;
+  const maxSpins = settings.maxSpinsPerDay || 2;
   
-  if(spinsUsed >= 1) {
+  document.getElementById('spinAvailTxt').textContent = `Spins today: ${spinsToday}/${maxSpins}`;
+  document.getElementById('wheelEl').style.transform='rotate(0deg)'; 
+  
+  const btn = document.getElementById('spinBtn');
+  if(spinsToday >= maxSpins){
     btn.disabled = true;
-    btn.textContent = 'Daily Limit Reached (1/1)';
+    btn.textContent = 'Daily limit reached (Come back tomorrow)';
   } else {
     btn.disabled = false;
-    btn.textContent = `Spin (${spinsUsed}/1 Used Today)`;
+    btn.textContent = 'Spin Wheel';
   }
-  document.getElementById('wheelEl').style.transform='rotate(0deg)'; 
   openModal('modalSpin'); 
 }
 
+function calculateWeightedSpin(){
+  const rand = Math.random() * 100; // Returns float 0 - 100
+  // Probability distribution:
+  // 90%: 1-50
+  // 9%: 50-70
+  // 0.9999%: 70-80
+  // 0.00001%: 200-300
+  if(rand < 90){
+    return Math.floor(Math.random() * 50) + 1; // 1 to 50
+  } else if(rand < 99){
+    return Math.floor(Math.random() * 21) + 50; // 50 to 70
+  } else if(rand < 99.9999){
+    return Math.floor(Math.random() * 11) + 70; // 70 to 80
+  } else {
+    return Math.floor(Math.random() * 101) + 200; // 200 to 300
+  }
+}
+
 async function doSpin(){
-  if(spinning) return; 
-  const u = currentUser;
-  if((u.todaySpinCount || 0) >= 1){
-    toast('You can only spin 1 time per day!', 'error');
+  if(spinning) return;
+  const spinsToday = currentUser.todaySpinsCount || 0;
+  const maxSpins = settings.maxSpinsPerDay || 2;
+  
+  if(spinsToday >= maxSpins){
+    toast('You have reached your limit of 2 spins today!', 'error');
     return;
   }
-
+  
   spinning = true;
   const btn = document.getElementById('spinBtn'); 
   btn.disabled = true;
-
-  const rand = Math.random() * 100;
-  let win = 1;
-
-  if (rand < 90.0) {
-    win = Math.floor(Math.random() * 50) + 1;
-  } else if (rand < 99.0) {
-    win = Math.floor(Math.random() * 21) + 50;
-  } else if (rand < 99.9999) {
-    win = Math.floor(Math.random() * 11) + 70;
-  } else {
-    win = Math.floor(Math.random() * 101) + 200;
-  }
-
-  const spins = 5 + Math.random() * 3;
-  const finalDeg = spins * 360 + Math.random() * 360;
-  document.getElementById('wheelEl').style.transform = 'rotate(' + finalDeg + 'deg)';
-
+  
+  const win = calculateWeightedSpin();
+  const spins = 5 + Math.random()*3;
+  const finalDeg = spins*360 + Math.random()*360;
+  document.getElementById('wheelEl').style.transform = 'rotate('+finalDeg+'deg)';
+  
   setTimeout(async ()=>{
     await usersCol.doc(uid).update({ 
       points: FieldValue.increment(win), 
       totalEarnings: FieldValue.increment(win), 
       todayEarnings: FieldValue.increment(win),
-      todaySpinCount: FieldValue.increment(1)
+      todaySpinsCount: FieldValue.increment(1)
     });
     await txCol.add({userId:uid, amount:win, description:'Lucky Spin win', type:'spin', createdAt:FieldValue.serverTimestamp()});
     await refreshUser(); 
     renderAll();
     spinning = false; 
     
-    btn.disabled = ((currentUser.todaySpinCount || 0) >= 1);
-    if(btn.disabled) btn.textContent = 'Daily Limit Reached (1/1)';
-    
+    const newSpinsToday = currentUser.todaySpinsCount || 0;
+    document.getElementById('spinAvailTxt').textContent = `Spins today: ${newSpinsToday}/${maxSpins}`;
+    if(newSpinsToday >= maxSpins){
+      btn.disabled = true;
+      btn.textContent = 'Daily limit reached';
+    } else {
+      btn.disabled = false;
+    }
+
     confettiBurst(); 
-    toast('🎉 You won ' + win + ' points!', 'success');
+    toast('🎉 You won '+win+' points!', 'success');
   }, 3600);
 }
 
@@ -1245,6 +1221,8 @@ async function redeemPromo(){
 }
 
 /* ---------------- watch ad ---------------- */
+const ADS_PER_WATCH = 2; // show two ads per Watch Ad press
+
 async function watchAd(){
   if(adCooldown){ toast('Please wait a moment before the next ad', 'error'); return; }
   const last = currentUser.lastAdTime && currentUser.lastAdTime.toDate ? currentUser.lastAdTime.toDate() : null;
@@ -1253,35 +1231,46 @@ async function watchAd(){
   const btn = document.getElementById('watchAdBtn');
   btn.disabled = true;
 
-  const duration = settings.adTimer || 30;
-  let remaining = duration;
-  adStartTime = Date.now();
-  
-  const overlay = document.getElementById('adOverlay');
-  const numEl = document.getElementById('adTimerNum');
-  const ring = document.getElementById('adRingProgress');
-  const circumference = 301.6;
-  numEl.textContent = remaining;
-  ring.style.strokeDashoffset = circumference;
-  overlay.classList.add('show');
-
-  if(adTimerInterval) clearInterval(adTimerInterval);
-  adTimerInterval = setInterval(() => {
-    const elapsed = (Date.now() - adStartTime) / 1000;
-    const remainingTime = Math.max(0, duration - elapsed);
-    numEl.textContent = Math.ceil(remainingTime);
-    ring.style.strokeDashoffset = circumference * (remainingTime/duration);
-    
-    if(remainingTime <= 0){
-      clearInterval(adTimerInterval);
-      overlay.classList.remove('show');
-      rewardAd();
-    }
-  }, 200);
-
-  if(typeof show_11480597 === 'function'){
-    try { show_11480597(); } catch(e) { console.log('Ad load skipped'); }
+  for(let round=1; round<=ADS_PER_WATCH; round++){
+    await playOneAdRound(round, ADS_PER_WATCH);
   }
+
+  rewardAd();
+}
+
+function playOneAdRound(round, total){
+  return new Promise(resolve => {
+    const duration = settings.adTimer || 30;
+    adStartTime = Date.now();
+
+    const overlay = document.getElementById('adOverlay');
+    const numEl = document.getElementById('adTimerNum');
+    const ring = document.getElementById('adRingProgress');
+    const label = document.getElementById('adOverlayLabel');
+    const circumference = 301.6;
+    numEl.textContent = duration;
+    ring.style.strokeDashoffset = circumference;
+    label.textContent = total > 1 ? ('Watching ad ' + round + ' of ' + total + '… stay on this screen') : 'Watching ad… stay on this screen';
+    overlay.classList.add('show');
+
+    if(adTimerInterval) clearInterval(adTimerInterval);
+    adTimerInterval = setInterval(() => {
+      const elapsed = (Date.now() - adStartTime) / 1000;
+      const remainingTime = Math.max(0, duration - elapsed);
+      numEl.textContent = Math.ceil(remainingTime);
+      ring.style.strokeDashoffset = circumference * (remainingTime/duration);
+
+      if(remainingTime <= 0){
+        clearInterval(adTimerInterval);
+        overlay.classList.remove('show');
+        resolve();
+      }
+    }, 200);
+
+    if(typeof show_11480597 === 'function'){
+      try { show_11480597(); } catch(e) { console.log('Ad load skipped'); }
+    }
+  });
 }
 
 async function rewardAd(){
@@ -1320,12 +1309,12 @@ async function rewardAd(){
 
 /* ---------------- referral ---------------- */
 function copyRefCode(){
-  const botUsername = settings.botUsername || 'Ethio_adbot';
+  const botUsername = (settings.botUsername || 'Ethio_adbot').replace(/^@/, '');
   const link = 'https://t.me/'+botUsername+'?start='+uid;
   navigator.clipboard.writeText(link).then(()=>toast('Referral link copied!', 'success')).catch(()=>toast('Copy failed', 'error'));
 }
 function shareRefCode(){
-  const botUsername = settings.botUsername || 'Ethio_adbot';
+  const botUsername = (settings.botUsername || 'Ethio_adbot').replace(/^@/, '');
   const link = 'https://t.me/'+botUsername+'?start='+uid;
   const text = 'Join Ethio Ads and start earning!';
   if(tg && tg.openTelegramLink){
@@ -1401,34 +1390,30 @@ async function checkApprovedWithdrawals(){
   }
 }
 
-/* ---------------- suggestions (10 points ONLY first time) ---------------- */
+/* ---------------- suggestions / support ---------------- */
 function openSuggest(){ document.getElementById('suggestInput').value=''; openModal('modalSuggest'); }
-
 async function submitSuggestion(){
   const text = document.getElementById('suggestInput').value.trim();
   if(!text){ toast('Please write a suggestion', 'error'); return; }
   
   await suggCol.add({ userId:uid, userName:currentUser.firstName, text, votes:0, status:'open', createdAt:FieldValue.serverTimestamp() });
   
-  const hasSuggested = currentUser.hasSuggestedBefore === true;
-  let reward = 0;
-
-  if (!hasSuggested) {
-    reward = 10;
-    await usersCol.doc(uid).update({ 
-      points: FieldValue.increment(10), 
-      totalEarnings: FieldValue.increment(10), 
+  // Award 10 points ONLY on the FIRST suggestion submitted
+  if(!currentUser.suggestionRewarded){
+    await usersCol.doc(uid).update({
+      points: FieldValue.increment(10),
+      totalEarnings: FieldValue.increment(10),
       todayEarnings: FieldValue.increment(10),
-      hasSuggestedBefore: true
+      suggestionRewarded: true
     });
-    await txCol.add({userId:uid, amount:10, description:'Feature suggestion reward (1st time)', type:'suggestion', createdAt:FieldValue.serverTimestamp()});
-    toast('Thanks! +10 points earned for your first suggestion!', 'success');
+    await txCol.add({ userId:uid, amount:10, description:'First suggestion bonus', type:'suggestion', createdAt:FieldValue.serverTimestamp() });
+    await refreshUser();
+    renderAll();
+    toast('Thanks! You earned 10 points for your first suggestion!', 'success');
   } else {
-    toast('Thank you for your suggestion!', 'success');
+    toast('Suggestion submitted! (0 pts - reward already claimed)', 'success');
   }
-
-  await refreshUser(); 
-  renderAll();
+  
   closeModal('modalSuggest');
 }
 
@@ -1440,6 +1425,14 @@ function contactSupport(){
 /* ---------------- chat ---------------- */
 let chatUnsub = null;
 
+function openChatModal(){
+  openModal('modalChat');
+  startChatListener();
+}
+function closeChatModal(){
+  closeModal('modalChat');
+  stopChatListener();
+}
 function startChatListener(){
   const box = document.getElementById('chatBox');
   box.innerHTML = '<div style="font-size:12px; color:var(--text2); text-align:center; padding:20px;">Loading messages...</div>';
@@ -1500,24 +1493,26 @@ async function sendChatMessage(){
   }
 }
 
-/* ---------------- notifications (Broadcast) ---------------- */
+/* ---------------- notifications ---------------- */
 async function checkNotifications(){
   try{
-    const snap = await notifCol.orderBy('createdAt', 'desc').limit(5).get();
+    // Removing the strict where filter so broadcasts appear regardless of index configuration
+    const snap = await notifCol.orderBy('createdAt', 'desc').limit(1).get();
+    
     if(snap.empty) {
       document.getElementById('notificationPopup').style.display = 'none';
       return;
     }
     
-    const activeDoc = snap.docs.find(doc => doc.data().active === true);
-    if(!activeDoc){
+    const notif = snap.docs[0].data();
+    const notifId = snap.docs[0].id;
+    
+    // Ignore notification if it was explicitly deactivated
+    if(notif.active === false){
       document.getElementById('notificationPopup').style.display = 'none';
       return;
     }
 
-    const notif = activeDoc.data();
-    const notifId = activeDoc.id;
-    
     const dismissed = sessionStorage.getItem('notif_dismissed_' + notifId);
     if(dismissed === 'true'){
       document.getElementById('notificationPopup').style.display = 'none';
